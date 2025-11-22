@@ -1,6 +1,11 @@
 <template>
-  <div class="outer-container">
+  <section class="outer-container">
     <div class="content">
+      <h2 class="title">Rezeptübersicht</h2>
+      <p class="subtitle">
+        Die Daten werden per <code>GET /rezepte</code> vom Spring-Boot-Backend geladen.
+      </p>
+
       <!-- Ladezustand -->
       <p v-if="isLoading" class="info-text">
         ⏳ Rezepte werden geladen ...
@@ -34,7 +39,7 @@
         Keine Rezepte gefunden.
       </p>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -46,10 +51,9 @@ interface Rezept {
   beschreibung: string
 }
 
-// Zustände
 const rezepte = ref<Rezept[]>([])
-const isLoading = ref<boolean>(true)
-const errorMessage = ref<string>('')
+const isLoading = ref(true)
+const errorMessage = ref('')
 
 // Basis-URL des Backends: aus ENV, sonst localhost
 const backendBaseUrl =
@@ -64,7 +68,9 @@ async function loadRezepte() {
     const response = await fetch(`${backendBaseUrl}/rezepte`)
 
     if (!response.ok) {
-      throw new Error(`Fehler beim Laden der Rezepte (Status ${response.status})`)
+      throw new Error(
+        `Fehler beim Laden der Rezepte (Status ${response.status})`
+      )
     }
 
     const data: Rezept[] = await response.json()
@@ -78,24 +84,33 @@ async function loadRezepte() {
   }
 }
 
-// Beim Mounten der Komponente Daten laden
 onMounted(() => {
   void loadRezepte()
 })
 </script>
 
 <style scoped>
-/* Äußerer Container: zentriert den Inhalt */
 .outer-container {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  padding-top: 32px;
 }
 
-/* Innerer Bereich mit Inhalt */
 .content {
-  text-align: left;
   width: 100%;
+  max-width: 900px;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 1.8rem;
+  color: #243b53;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  color: #6c757d;
+  font-size: 0.95rem;
 }
 
 /* Info-/Fehlertexte */
@@ -118,7 +133,6 @@ onMounted(() => {
 /* Tabelle */
 table {
   width: 100%;
-  max-width: 700px;
   border-collapse: collapse;
   margin: 0 auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
