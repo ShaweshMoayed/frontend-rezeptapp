@@ -1,10 +1,18 @@
 <template>
   <div class="outer-container">
     <div class="content">
-      <h2>🍽️ Rezeptübersicht</h2>
-      <p class="subtitle">Eine einfache Liste mit Beispielrezepten</p>
+      <!-- Ladezustand -->
+      <p v-if="isLoading" class="info-text">
+        ⏳ Rezepte werden geladen ...
+      </p>
 
-      <table>
+      <!-- Fehlermeldung -->
+      <p v-else-if="errorMessage" class="error-text">
+        {{ errorMessage }}
+      </p>
+
+      <!-- Tabelle mit Rezepten -->
+      <table v-else-if="rezepte.length > 0">
         <thead>
         <tr>
           <th>ID</th>
@@ -21,7 +29,8 @@
         </tbody>
       </table>
 
-      <p v-if="rezepte.length === 0" class="empty-text">
+      <!-- Keine Rezepte -->
+      <p v-else class="empty-text">
         Keine Rezepte gefunden.
       </p>
     </div>
@@ -29,54 +38,97 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-const rezepte = ref([
-  { id: 1, name: 'Spaghetti Carbonara', beschreibung: 'Klassisches italienisches Gericht mit Ei, Speck und Parmesan.' },
-  { id: 2, name: 'Gemüsesuppe', beschreibung: 'Leichte Suppe mit frischem Gemüse — perfekt für kalte Tage.' },
-  { id: 3, name: 'Pancakes', beschreibung: 'Fluffige Pfannkuchen mit Ahornsirup und Beeren.' }
-])
+interface Rezept {
+  id: number
+  name: string
+  beschreibung: string
+}
+
+// Zustände
+const rezepte = ref<Rezept[]>([])
+const isLoading = ref<boolean>(true)
+const errorMessage = ref<string>('')
+
+// Basis-URL des Backends: aus ENV, sonst localhost
+const backendBaseUrl =
+  import.meta.env.VITE_BACKEND_BASE_URL ?? 'http://localhost:8080'
+
+async function loadRezepte() {
+  isLoading.value = true
+  errorMessage.value = ''
+  rezepte.value = []
+
+  try {
+    const response = await fetch(`${backendBaseUrl}/rezepte`)
+
+    if (!response.ok) {
+      throw new Error(`Fehler beim Laden der Rezepte (Status ${response.status})`)
+    }
+
+    const data: Rezept[] = await response.json()
+    rezepte.value = data
+  } catch (error) {
+    console.error('Fehler beim Laden der Rezepte:', error)
+    errorMessage.value =
+      'Die Rezepte konnten nicht geladen werden. Bitte versuchen Sie es später erneut.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Beim Mounten der Komponente Daten laden
+onMounted(() => {
+  void loadRezepte()
+})
 </script>
 
 <style scoped>
-/* Äußerer Container: zentriert ALLES auf der Seite */
+/* Äußerer Container: zentriert den Inhalt */
 .outer-container {
   display: flex;
-  justify-content: center; /* horizontal zentrieren */
-  align-items: center; /* vertikal zentrieren */
-  height: 100vh;
-  background-color: #f8f9fa;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 /* Innerer Bereich mit Inhalt */
 .content {
+  text-align: left;
+  width: 100%;
+}
+
+/* Info-/Fehlertexte */
+.info-text {
   text-align: center;
-}
-
-/* Überschrift */
-h2 {
-  color: #2c3e50;
-  margin-bottom: 5px;
-}
-
-/* Untertitel */
-.subtitle {
   color: #6c757d;
-  margin-bottom: 20px;
+  margin-top: 16px;
+}
+
+.error-text {
+  text-align: center;
+  color: #b3261e;
+  background-color: #ffe5e1;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 16px auto;
+  max-width: 600px;
 }
 
 /* Tabelle */
 table {
-  width: 650px;
+  width: 100%;
+  max-width: 700px;
   border-collapse: collapse;
   margin: 0 auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   background-color: #fff;
   border-radius: 8px;
   overflow: hidden;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #ddd;
   padding: 10px 12px;
   text-align: left;
@@ -95,5 +147,6 @@ tr:nth-child(even) {
 .empty-text {
   color: #888;
   margin-top: 20px;
+  text-align: center;
 }
 </style>

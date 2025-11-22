@@ -1,16 +1,17 @@
 <template>
-  <main class="app-container">
-    <RecipeList />
-  </main>
+  <div class="app-shell">
+    <RouterView />
+  </div>
 </template>
 
 <script setup lang="ts">
-import RecipeList from './components/RecipeList.vue'
+import { RouterView } from 'vue-router'
 </script>
 
 <style>
 /* Grundlegendes Reset und Hintergrund-Design */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background-color: #f8f9fa;
@@ -19,13 +20,9 @@ html, body {
   height: 100%;
 }
 
-/* App-Container sorgt für zentrierte Darstellung */
-.app-container {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+/* App-Shell um die Seiten herum */
+.app-shell {
   min-height: 100vh;
-  padding-top: 40px;
 }
 
 /* Standardlinks entfernen (für sauberes Layout) */
