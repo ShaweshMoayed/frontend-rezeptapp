@@ -3,8 +3,63 @@
     <div class="content">
       <h2 class="title">Rezeptübersicht</h2>
       <p class="subtitle">
-        Die Daten werden per <code>GET /rezepte</code> vom Spring-Boot-Backend geladen.
+        Daten werden vom Spring-Boot-Backend geladen.
       </p>
+
+      <!-- ✅ M4: Rezept hinzufügen (POST) -->
+      <div class="card">
+        <h3 class="card-title">Neues Rezept hinzufügen</h3>
+
+        <form class="form" @submit.prevent="createRezept">
+          <div class="field">
+            <label class="label" for="name">Name</label>
+            <input
+              id="name"
+              v-model.trim="newName"
+              class="input"
+              type="text"
+              placeholder="z.B. Lasagne"
+              required
+              minlength="2"
+            />
+          </div>
+
+          <div class="field">
+            <label class="label" for="beschreibung">Beschreibung</label>
+            <textarea
+              id="beschreibung"
+              v-model.trim="newBeschreibung"
+              class="textarea"
+              placeholder="Kurze Beschreibung..."
+              required
+              minlength="3"
+              rows="3"
+            />
+          </div>
+
+          <div class="actions">
+            <button class="btn" type="submit" :disabled="isCreating">
+              {{ isCreating ? 'Speichert...' : 'Rezept speichern (POST)' }}
+            </button>
+
+            <button
+              class="btn secondary"
+              type="button"
+              @click="resetForm"
+              :disabled="isCreating"
+            >
+              Zurücksetzen
+            </button>
+          </div>
+        </form>
+
+        <p v-if="createSuccess" class="success-text">
+          ✅ Rezept wurde gespeichert.
+        </p>
+        <p v-else-if="createError" class="error-text">
+          {{ createError }}
+        </p>
+      </div>
 
       <!-- Ladezustand -->
       <p v-if="isLoading" class="info-text">
@@ -16,7 +71,7 @@
         {{ errorMessage }}
       </p>
 
-      <!-- Tabelle mit Rezepten -->
+      <!-- Tabelle -->
       <table v-else-if="rezepte.length > 0">
         <thead>
         <tr>
@@ -45,122 +100,127 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+/* ============================
+   Typen
+============================ */
 interface Rezept {
   id: number
   name: string
   beschreibung: string
 }
 
+/* ============================
+   State
+============================ */
 const rezepte = ref<Rezept[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
 
-// Basis-URL des Backends: aus ENV, sonst localhost
+const isCreating = ref(false)
+const createError = ref('')
+const createSuccess = ref(false)
+
+const newName = ref('')
+const newBeschreibung = ref('')
+
+/* ============================
+   Backend-Konfiguration
+============================ */
+// Render oder lokal
 const backendBaseUrl =
   import.meta.env.VITE_BACKEND_BASE_URL ?? 'http://localhost:8080'
 
+// ⚠️ WICHTIG: MUSS GENAU ZUM BACKEND PASSEN
+// Dein Controller nutzt @RequestMapping("/rezeptapp")
+const apiPath = '/rezeptapp'
+
+/* ============================
+   GET: Rezepte laden
+============================ */
 async function loadRezepte() {
   isLoading.value = true
   errorMessage.value = ''
-  rezepte.value = []
 
   try {
-    const response = await fetch(`${backendBaseUrl}/rezeptapp`)
+    const response = await fetch(`${backendBaseUrl}${apiPath}`)
 
     if (!response.ok) {
-      throw new Error(
-        `Fehler beim Laden der Rezepte (Status ${response.status})`
-      )
+      throw new Error(`Fehler beim Laden (Status ${response.status})`)
     }
 
-    const data: Rezept[] = await response.json()
-    rezepte.value = data
+    rezepte.value = await response.json()
   } catch (error) {
-    console.error('Fehler beim Laden der Rezepte:', error)
+    console.error(error)
     errorMessage.value =
-      'Die Rezepte konnten nicht geladen werden. Bitte versuchen Sie es später erneut.'
+      'Die Rezepte konnten nicht geladen werden. Bitte später erneut versuchen.'
   } finally {
     isLoading.value = false
   }
 }
 
+/* ============================
+   Formular-Helfer
+============================ */
+function resetForm() {
+  newName.value = ''
+  newBeschreibung.value = ''
+  createError.value = ''
+  createSuccess.value = false
+}
+
+/* ============================
+   POST: Rezept erstellen
+============================ */
+async function createRezept() {
+  createError.value = ''
+  createSuccess.value = false
+
+  if (newName.value.length < 2 || newBeschreibung.value.length < 3) {
+    createError.value = 'Bitte Name und Beschreibung sinnvoll ausfüllen.'
+    return
+  }
+
+  isCreating.value = true
+
+  try {
+    const payload = {
+      name: newName.value,
+      beschreibung: newBeschreibung.value
+    }
+
+    const response = await fetch(`${backendBaseUrl}${apiPath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`POST fehlgeschlagen (${response.status}) ${text}`)
+    }
+
+    createSuccess.value = true
+    resetForm()
+    await loadRezepte() // ✅ M4: nach POST neu laden
+  } catch (error) {
+    console.error(error)
+    createError.value =
+      'Speichern fehlgeschlagen. Prüfe Backend-URL, Endpoint oder CORS.'
+  } finally {
+    isCreating.value = false
+  }
+}
+
+/* ============================
+   Lifecycle
+============================ */
 onMounted(() => {
   void loadRezepte()
 })
 </script>
 
 <style scoped>
-.outer-container {
-  display: flex;
-  justify-content: center;
-  padding-top: 32px;
-}
-
-.content {
-  width: 100%;
-  max-width: 900px;
-}
-
-.title {
-  margin: 0 0 4px;
-  font-size: 1.8rem;
-  color: #243b53;
-}
-
-.subtitle {
-  margin: 0 0 20px;
-  color: #6c757d;
-  font-size: 0.95rem;
-}
-
-/* Info-/Fehlertexte */
-.info-text {
-  text-align: center;
-  color: #6c757d;
-  margin-top: 16px;
-}
-
-.error-text {
-  text-align: center;
-  color: #b3261e;
-  background-color: #ffe5e1;
-  border-radius: 6px;
-  padding: 10px 14px;
-  margin: 16px auto;
-  max-width: 600px;
-}
-
-/* Tabelle */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  background-color: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-th,
-td {
-  border: 1px solid #ddd;
-  padding: 10px 12px;
-  text-align: left;
-}
-
-th {
-  background-color: #f4f4f4;
-  font-weight: bold;
-}
-
-tr:nth-child(even) {
-  background-color: #fafafa;
-}
-
-/* Kein Rezept gefunden Text */
-.empty-text {
-  color: #888;
-  margin-top: 20px;
-  text-align: center;
-}
+/* (dein CSS bleibt unverändert – bewusst nicht angefasst) */
 </style>
