@@ -65,7 +65,7 @@ async function loadRezepte() {
   rezepte.value = []
 
   try {
-    const response = await fetch(`${backendBaseUrl}/rezepte`)
+    const response = await fetch(`${backendBaseUrl}/rezeptapp`)
 
     if (!response.ok) {
       throw new Error(
