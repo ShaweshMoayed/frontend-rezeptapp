@@ -224,3 +224,4 @@ onMounted(() => {
 <style scoped>
 /* (dein CSS bleibt unverändert – bewusst nicht angefasst) */
 </style>
+
