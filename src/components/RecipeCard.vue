@@ -1,69 +1,108 @@
-<script setup lang="ts">
-import type { Recipe } from "@/types/recipe";
-
-defineProps<{
-  recipe: Recipe;
-}>();
-</script>
-
 <template>
   <article class="card">
-    <img
-      v-if="recipe.imageUrl"
-      :src="recipe.imageUrl"
-      alt="Rezeptbild"
-      class="card-image"
-    />
+    <div class="img" v-if="image">
+      <img :src="image" :alt="recipe.title" />
+    </div>
 
-    <div class="card-body">
-      <h3>{{ recipe.title }}</h3>
-      <p>{{ recipe.description }}</p>
+    <div class="content">
+      <div class="top">
+        <h3 class="title">{{ recipe.title }}</h3>
+        <span v-if="recipe.category" class="badge">{{ recipe.category }}</span>
+      </div>
+
+      <p class="desc">{{ recipe.description }}</p>
 
       <div class="meta">
-        <span v-if="recipe.prepMinutes">⏱ {{ recipe.prepMinutes }} min</span>
-        <span v-if="recipe.category">{{ recipe.category }}</span>
+        <span v-if="recipe.prepMinutes != null">⏱ {{ recipe.prepMinutes }} min</span>
+        <span v-if="recipe.servings != null">🍽 {{ recipe.servings }} Portionen</span>
+        <span v-if="recipe.nutrition?.caloriesKcal != null">🔥 {{ recipe.nutrition.caloriesKcal }} kcal</span>
       </div>
     </div>
   </article>
 </template>
 
+<script setup lang="ts">
+import type { Recipe } from '../types/recipe'
+
+const props = defineProps<{ recipe: Recipe }>()
+
+const image = computed(() => {
+  if (props.recipe.imageBase64 && props.recipe.imageBase64.trim().length > 0) {
+    // kann "data:image/..." oder raw base64 sein
+    return props.recipe.imageBase64.startsWith('data:')
+      ? props.recipe.imageBase64
+      : `data:image/png;base64,${props.recipe.imageBase64}`
+  }
+  return props.recipe.imageUrl || ''
+})
+
+import { computed } from 'vue'
+</script>
+
 <style scoped>
 .card {
-  background: #020617;
-  border-radius: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  min-height: 140px;
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+.img {
+  background: #f2f2f2;
 }
-
-.card-image {
+.img img {
   width: 100%;
-  height: 160px;
+  height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.card-body {
-  padding: 1rem;
+.content {
+  padding: 14px 14px 12px;
+  display: grid;
+  gap: 10px;
 }
 
-.card-body h3 {
-  margin: 0 0 0.5rem;
+.top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.card-body p {
-  font-size: 0.9rem;
-  opacity: 0.85;
+.title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--chip);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.desc {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .meta {
   display: flex;
-  justify-content: space-between;
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-  opacity: 0.7;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
 </style>
