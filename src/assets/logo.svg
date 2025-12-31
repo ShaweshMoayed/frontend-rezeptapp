@@ -1,1 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 261.76 226.69"><path d="M161.096.001l-30.225 52.351L100.647.001H-.005l130.877 226.688L261.749.001z" fill="#41b883"/><path d="M161.096.001l-30.225 52.351L100.647.001H52.346l78.526 136.01L209.398.001z" fill="#34495e"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f7f0e6"/>
+            <stop offset="1" stop-color="#efe3d3"/>
+        </linearGradient>
+        <linearGradient id="cake" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3b7a67"/>
+            <stop offset="1" stop-color="#2f6f5e"/>
+        </linearGradient>
+        <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.18"/>
+        </filter>
+    </defs>
+
+    <!-- round badge -->
+    <circle cx="210" cy="210" r="170" fill="url(#bg)" stroke="#d9c9b4" stroke-width="6" filter="url(#shadow)"/>
+
+    <!-- cake icon -->
+    <!-- plate -->
+    <ellipse cx="210" cy="260" rx="120" ry="26" fill="#e6d7c5" stroke="#d4c3ae" stroke-width="4"/>
+    <ellipse cx="210" cy="257" rx="98" ry="18" fill="#f4eadf"/>
+
+    <!-- cake body -->
+    <rect x="120" y="135" width="180" height="120" rx="26" fill="url(#cake)"/>
+    <!-- frosting -->
+    <path d="M135 160
+           C155 145, 175 175, 195 160
+           C215 145, 235 175, 255 160
+           C275 145, 295 175, 315 160
+           L315 190
+           C295 205, 275 175, 255 190
+           C235 205, 215 175, 195 190
+           C175 205, 155 175, 135 190
+           Z" fill="#f7f0e6" opacity="0.95"/>
+
+    <!-- sprinkles -->
+    <g opacity="0.9">
+        <rect x="160" y="205" width="18" height="6" rx="3" fill="#e0b873"/>
+        <rect x="205" y="215" width="18" height="6" rx="3" fill="#c98b7b"/>
+        <rect x="250" y="205" width="18" height="6" rx="3" fill="#9fb8a7"/>
+        <rect x="185" y="235" width="18" height="6" rx="3" fill="#e0b873"/>
+        <rect x="230" y="235" width="18" height="6" rx="3" fill="#c98b7b"/>
+    </g>
+
+    <!-- candle -->
+    <rect x="200" y="92" width="20" height="52" rx="8" fill="#f4eadf" stroke="#d9c9b4" stroke-width="3"/>
+    <path d="M210 70
+           C198 86, 202 96, 210 104
+           C218 96, 222 86, 210 70 Z" fill="#e0b873"/>
+    <circle cx="210" cy="90" r="6" fill="#ffd89a" opacity="0.9"/>
+
+    <!-- text -->
+    <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" text-anchor="middle">
+        <text x="210" y="330" font-size="54" font-weight="800" fill="#1f2d2a">Rezept</text>
+        <text x="210" y="375" font-size="44" font-weight="800" fill="#2f6f5e">App</text>
+    </g>
+</svg>

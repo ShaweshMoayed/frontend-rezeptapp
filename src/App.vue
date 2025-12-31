@@ -1,20 +1,17 @@
 <template>
   <div class="app">
     <AppHeader />
-
-    <main class="container">
-      <router-view />
-    </main>
+    <router-view />
   </div>
 </template>
 
 <script setup lang="ts">
-import AppHeader from './components/AppHeader.vue'
+import AppHeader from '@/components/AppHeader.vue'
 </script>
 
-<style scoped>
+<style>
 .app {
   min-height: 100vh;
-  background: var(--color-bg);
+  background: #faf7f1;
 }
 </style>
