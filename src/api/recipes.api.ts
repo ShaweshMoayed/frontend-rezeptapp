@@ -1,42 +1,37 @@
 import type { Recipe } from '../types/recipe'
 import { http } from './http'
 
-export type RecipeQuery = {
-  search?: string
-  category?: string
+// ... deine bestehenden exports (fetchRecipes, fetchCategories, fetchRecipeById, etc.)
+
+export async function fetchMyFavoriteIds(): Promise<number[]> {
+  return http<number[]>('/rezeptapp/favorites/ids')
 }
 
-export async function fetchRecipes(params?: RecipeQuery): Promise<Recipe[]> {
-  const q = new URLSearchParams()
-  if (params?.search) q.set('search', params.search)
-  if (params?.category) q.set('category', params.category)
-
-  const suffix = q.toString() ? `?${q.toString()}` : ''
-  return http<Recipe[]>(`/rezeptapp${suffix}`)
+export async function addFavorite(recipeId: number): Promise<void> {
+  await http<void>(`/rezeptapp/${recipeId}/favorite`, { method: 'POST' })
 }
 
-export async function fetchCategories(): Promise<string[]> {
-  return http<string[]>(`/rezeptapp/categories`)
+export async function removeFavorite(recipeId: number): Promise<void> {
+  await http<void>(`/rezeptapp/${recipeId}/favorite`, { method: 'DELETE' })
 }
 
-export async function fetchRecipeById(id: number): Promise<Recipe> {
-  return http<Recipe>(`/rezeptapp/${id}`)
-}
+// ✅ PDF Download als Blob (kein JSON!)
+export async function downloadRecipePdf(recipeId: number): Promise<Blob> {
+  const res = await fetch(
+    `${import.meta.env.VITE_BACKEND_BASE_URL.replace(/\/$/, '')}/rezeptapp/${recipeId}/pdf`,
+    {
+      headers: {
+        Authorization: localStorage.getItem('auth_token')
+          ? `Bearer ${localStorage.getItem('auth_token')}`
+          : '',
+      },
+    }
+  )
 
-export async function createRecipe(payload: Recipe): Promise<Recipe> {
-  return http<Recipe>(`/rezeptapp`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-}
+  if (!res.ok) {
+    const msg = await res.text().catch(() => `PDF Download failed (${res.status})`)
+    throw new Error(msg)
+  }
 
-export async function updateRecipe(id: number, payload: Recipe): Promise<Recipe> {
-  return http<Recipe>(`/rezeptapp/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function deleteRecipe(id: number): Promise<void> {
-  await http<void>(`/rezeptapp/${id}`, { method: 'DELETE' })
+  return await res.blob()
 }

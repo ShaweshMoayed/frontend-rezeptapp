@@ -15,9 +15,7 @@
       </div>
 
       <div class="nav-right">
-        <RouterLink to="/login" class="login-btn">
-          Einloggen
-        </RouterLink>
+        <RouterLink to="/login" class="login-btn">Einloggen</RouterLink>
       </div>
     </nav>
   </header>
@@ -40,6 +38,9 @@
   transform: translateX(-50%);
   animation: float 6s ease-in-out infinite;
   z-index: 2;
+
+  /* ✅ wichtig: Logo darf keine Klicks blockieren */
+  pointer-events: none;
 }
 
 .logo-float img {
@@ -48,9 +49,15 @@
 
 /* Schwebeanimation */
 @keyframes float {
-  0% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, -8px); }
-  100% { transform: translate(-50%, 0); }
+  0% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -8px);
+  }
+  100% {
+    transform: translate(-50%, 0);
+  }
 }
 
 /* ===== Navbar ===== */
@@ -63,7 +70,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 /* ===== Link Gruppen ===== */
@@ -89,7 +96,13 @@
   background: rgba(70, 120, 95, 0.15);
 }
 
-/* ✅ AKTIVER LINK (wie „Start“) */
+/* ✅ Aktiv: auch bei Unterseiten (z.B. /rezepte/neu, /rezepte/123) */
+.nav-left a.router-link-active {
+  background: #cfe0d6;
+  color: #2f5d4c;
+}
+
+/* ✅ Exakt aktiv: z.B. „Start“ nur bei / */
 .nav-left a.router-link-exact-active {
   background: #cfe0d6;
   color: #2f5d4c;

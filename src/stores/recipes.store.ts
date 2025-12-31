@@ -1,114 +1,66 @@
 import { defineStore } from 'pinia'
-import type { Recipe } from '../types/recipe'
-import {
-  fetchRecipes,
-  fetchCategories,
-  fetchRecipeById,
-  createRecipe,
-  updateRecipe,
-  deleteRecipe,
-  type RecipeQuery,
-} from '../api/recipes.api'
+import type { Recipe } from '@/types/recipe'
+import { fetchCategories, fetchRecipes } from '@/api/recipes.api'
 
-type State = {
-  items: Recipe[]
-  categories: string[]
-  selected: Recipe | null
-  loading: boolean
-  error: string | null
-  query: RecipeQuery
+export type RecipeQuery = {
+  search?: string
+  category?: string
+}
+
+function uniqCategoriesFromRecipes(recipes: Recipe[]): string[] {
+  const set = new Set<string>()
+  for (const r of recipes) {
+    const c = (r.category ?? '').trim()
+    if (c) set.add(c)
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
 }
 
 export const useRecipesStore = defineStore('recipes', {
-  state: (): State => ({
-    items: [],
-    categories: [],
-    selected: null,
+  state: () => ({
+    recipes: [] as Recipe[],
+    categories: [] as string[],
     loading: false,
-    error: null,
-    query: {},
+    error: '' as string,
+    lastQuery: { search: '', category: '' } as RecipeQuery,
   }),
 
   actions: {
-    async loadRecipes(query?: RecipeQuery) {
-      this.loading = true
-      this.error = null
-      try {
-        this.query = query ?? this.query
-        this.items = await fetchRecipes(this.query)
-      } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Laden der Rezepte'
-      } finally {
-        this.loading = false
-      }
-    },
-
     async loadCategories() {
-      this.error = null
       try {
-        this.categories = await fetchCategories()
-      } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Laden der Kategorien'
+        const cats = await fetchCategories()
+        this.categories = Array.isArray(cats) ? cats : []
+      } catch {
+        // Backend kann hier gerade 500 liefern → wir fallen zurück (nach loadRecipes)
+        this.categories = []
       }
     },
 
-    async loadRecipe(id: number) {
+    async loadRecipes(query: RecipeQuery = {}) {
       this.loading = true
-      this.error = null
+      this.error = ''
+      this.lastQuery = { ...query }
+
       try {
-        this.selected = await fetchRecipeById(id)
+        const data = await fetchRecipes(query)
+        this.recipes = Array.isArray(data) ? data : []
+
+        // ✅ Fallback: wenn /categories kaputt ist, Kategorien aus Rezepten ziehen
+        if (!this.categories.length) {
+          this.categories = uniqCategoriesFromRecipes(this.recipes)
+        }
       } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Laden des Rezepts'
+        this.error =
+          e?.message ||
+          'Rezepte konnten nicht geladen werden. Bitte versuche es erneut.'
+        this.recipes = []
       } finally {
         this.loading = false
       }
     },
 
-    async addRecipe(payload: Recipe) {
-      this.loading = true
-      this.error = null
-      try {
-        const created = await createRecipe(payload)
-        this.items.unshift(created)
-        return created
-      } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Erstellen'
-        throw e
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async editRecipe(id: number, payload: Recipe) {
-      this.loading = true
-      this.error = null
-      try {
-        const updated = await updateRecipe(id, payload)
-        const idx = this.items.findIndex((r) => r.id === id)
-        if (idx >= 0) this.items[idx] = updated
-        if (this.selected?.id === id) this.selected = updated
-        return updated
-      } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Speichern'
-        throw e
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async removeRecipe(id: number) {
-      this.loading = true
-      this.error = null
-      try {
-        await deleteRecipe(id)
-        this.items = this.items.filter((r) => r.id !== id)
-        if (this.selected?.id === id) this.selected = null
-      } catch (e: any) {
-        this.error = e?.message ?? 'Fehler beim Löschen'
-        throw e
-      } finally {
-        this.loading = false
-      }
+    async refresh() {
+      await this.loadRecipes(this.lastQuery)
     },
   },
 })
