@@ -2,13 +2,30 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-
-// ✅ globales Stylesheet
 import './styles/main.css'
 
-const app = createApp(App)
+import { useAuthStore } from '@/stores/auth.store'
+import { useRecipesStore } from '@/stores/recipes.store'
 
-app.use(createPinia())
-app.use(router)
+async function bootstrap() {
+  const app = createApp(App)
+  const pinia = createPinia()
 
-app.mount('#app')
+  app.use(pinia)
+  app.use(router)
+
+  // ✅ Persistenter Login: beim Start user + favoriten laden
+  const auth = useAuthStore(pinia)
+  const recipes = useRecipesStore(pinia)
+
+  if (auth.token) {
+    await auth.fetchMe()
+    if (auth.isLoggedIn) {
+      await recipes.loadFavoriteIds()
+    }
+  }
+
+  app.mount('#app')
+}
+
+bootstrap()

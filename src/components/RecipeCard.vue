@@ -7,14 +7,13 @@
         {{ categoryLabel(recipe.category) }}
       </span>
 
-      <!-- ❤️ Favorit (oben rechts) -->
       <button
         class="fav"
         type="button"
         :aria-pressed="isFav"
         :title="isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'"
         @click.stop="toggleFav"
-        :disabled="favLoading"
+        :disabled="recipes.favLoading"
       >
         <span class="fav-icon" aria-hidden="true">{{ isFav ? '♥' : '♡' }}</span>
       </button>
@@ -37,11 +36,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { Recipe } from '@/types/recipe'
-
 import { useAuthStore } from '@/stores/auth.store'
-import { fetchMyFavoriteIds, addFavorite, removeFavorite } from '@/api/recipes.api'
+import { useRecipesStore } from '@/stores/recipes.store'
 
 // ✅ lokale Bilder
 import fallbackSpaghetti from '@/assets/recipe-fallbacks/spaghetti.png'
@@ -55,25 +53,14 @@ defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const recipes = useRecipesStore()
 
-/**
- * ✅ Favoriten global cachen (damit nicht pro Card 1 Request passiert)
- */
-let favIdsCache: number[] | null = null
-let favIdsInFlight: Promise<number[]> | null = null
-
-async function ensureFavoriteIds(): Promise<number[]> {
-  if (favIdsCache) return favIdsCache
-  if (!favIdsInFlight) {
-    favIdsInFlight = fetchMyFavoriteIds()
-      .then((ids) => (Array.isArray(ids) ? ids : []))
-      .finally(() => {
-        favIdsInFlight = null
-      })
+onMounted(async () => {
+  // ✅ einmal Favoriten laden (wenn eingeloggt und noch nicht geladen)
+  if (auth.isLoggedIn && recipes.favoriteIds.length === 0) {
+    await recipes.loadFavoriteIds()
   }
-  favIdsCache = await favIdsInFlight
-  return favIdsCache
-}
+})
 
 function pickLocalImage(): string {
   const title = (props.recipe.title ?? '').toLowerCase()
@@ -82,7 +69,6 @@ function pickLocalImage(): string {
   if (title.includes('carbonara') || title.includes('spaghetti') || cat === 'pasta') return fallbackSpaghetti
   if (title.includes('veggie') || title.includes('bowl') || cat === 'healthy') return fallbackVeggie
   if (title.includes('pancake') || cat === 'dessert') return fallbackPancakes
-
   return fallbackVeggie
 }
 
@@ -92,17 +78,12 @@ const imageSrc = computed(() => {
     if (b64.startsWith('data:image/')) return b64
     return `data:image/jpeg;base64,${b64}`
   }
-  // ✅ keine URLs, nur lokal
   return pickLocalImage()
 })
 
 function categoryLabel(cat: string) {
   const c = cat.trim().toLowerCase()
-  const map: Record<string, string> = {
-    pasta: 'Pasta',
-    healthy: 'Gesund',
-    dessert: 'Dessert',
-  }
+  const map: Record<string, string> = { pasta: 'Pasta', healthy: 'Gesund', dessert: 'Dessert' }
   return map[c] ?? cat
 }
 
@@ -114,51 +95,16 @@ const hasAnyMeta = computed(
   () => prepMinutes.value != null || servings.value != null || caloriesKcal.value != null
 )
 
-/** ❤️ Favorit State */
-const isFav = ref(false)
-const favLoading = ref(false)
-
-onMounted(async () => {
-  if (!props.recipe.id) return
-  if (!auth.isLoggedIn) return
-
-  try {
-    const ids = await ensureFavoriteIds()
-    isFav.value = ids.includes(Number(props.recipe.id))
-  } catch {
-    // wenn favorites endpoint mal zickt -> einfach kein Herz aktiv
-    isFav.value = false
-  }
+const isFav = computed(() => {
+  const id = Number(props.recipe.id)
+  if (!id) return false
+  return recipes.isFavorite(id)
 })
 
 async function toggleFav() {
-  if (!props.recipe.id) return
-
-  if (!auth.isLoggedIn) {
-    alert('Bitte zuerst einloggen, um Favoriten zu nutzen.')
-    return
-  }
-
-  favLoading.value = true
-  try {
-    const id = Number(props.recipe.id)
-    // Cache sicherstellen
-    const ids = await ensureFavoriteIds()
-
-    if (isFav.value) {
-      await removeFavorite(id)
-      isFav.value = false
-      favIdsCache = ids.filter((x) => x !== id)
-    } else {
-      await addFavorite(id)
-      isFav.value = true
-      favIdsCache = Array.from(new Set([...ids, id]))
-    }
-  } catch (e: any) {
-    alert(e?.message || 'Favorit konnte nicht geändert werden.')
-  } finally {
-    favLoading.value = false
-  }
+  const id = Number(props.recipe.id)
+  if (!id) return
+  await recipes.toggleFavorite(id)
 }
 </script>
 
@@ -180,18 +126,8 @@ async function toggleFav() {
   border-color: rgba(47, 93, 76, 0.25);
 }
 
-.media {
-  position: relative;
-  height: 132px;
-  background: rgba(47, 93, 76, 0.06);
-}
-
-.media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+.media { position: relative; height: 132px; background: rgba(47, 93, 76, 0.06); }
+.media img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .badge {
   position: absolute;
@@ -209,7 +145,6 @@ async function toggleFav() {
   backdrop-filter: blur(6px);
 }
 
-/* ❤️ Favorit Button */
 .fav {
   position: absolute;
   top: 10px;
@@ -226,27 +161,12 @@ async function toggleFav() {
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
-.fav:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
-}
+.fav:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,0.10); }
+.fav:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
 
-.fav:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
+.fav-icon { font-size: 1.05rem; line-height: 1; color: #2f5d4c; }
 
-.fav-icon {
-  font-size: 1.05rem;
-  line-height: 1;
-  color: #2f5d4c;
-}
-
-.body {
-  padding: 14px 16px 14px;
-}
+.body { padding: 14px 16px 14px; }
 
 .title {
   margin: 0;
@@ -264,17 +184,6 @@ async function toggleFav() {
   min-height: 2.6em;
 }
 
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  color: rgba(31, 42, 36, 0.7);
-  font-size: 0.86rem;
-}
-
-.meta span:not(:last-child)::after {
-  content: "•";
-  margin: 0 10px;
-  color: rgba(31, 42, 36, 0.45);
-}
+.meta { display: flex; flex-wrap: wrap; align-items: center; color: rgba(31, 42, 36, 0.7); font-size: 0.86rem; }
+.meta span:not(:last-child)::after { content: "•"; margin: 0 10px; color: rgba(31, 42, 36, 0.45); }
 </style>

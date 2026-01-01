@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia'
 import type { Recipe } from '@/types/recipe'
-import { fetchCategories, fetchRecipes } from '@/api/recipes.api'
+import {
+  fetchCategories,
+  fetchRecipes,
+  fetchMyFavoriteIds,
+  addFavorite,
+  removeFavorite,
+} from '@/api/recipes.api'
+import { useAuthStore } from '@/stores/auth.store'
+import { useToastStore } from '@/stores/toast.store'
 
 export type RecipeQuery = {
   search?: string
@@ -23,7 +31,14 @@ export const useRecipesStore = defineStore('recipes', {
     loading: false,
     error: '' as string,
     lastQuery: { search: '', category: '' } as RecipeQuery,
+
+    favoriteIds: [] as number[],
+    favLoading: false,
   }),
+
+  getters: {
+    isFavorite: (s) => (id: number) => s.favoriteIds.includes(id),
+  },
 
   actions: {
     async loadCategories() {
@@ -31,7 +46,6 @@ export const useRecipesStore = defineStore('recipes', {
         const cats = await fetchCategories()
         this.categories = Array.isArray(cats) ? cats : []
       } catch {
-        // Backend kann hier gerade 500 liefern → wir fallen zurück (nach loadRecipes)
         this.categories = []
       }
     },
@@ -45,14 +59,11 @@ export const useRecipesStore = defineStore('recipes', {
         const data = await fetchRecipes(query)
         this.recipes = Array.isArray(data) ? data : []
 
-        // ✅ Fallback: wenn /categories kaputt ist, Kategorien aus Rezepten ziehen
         if (!this.categories.length) {
           this.categories = uniqCategoriesFromRecipes(this.recipes)
         }
       } catch (e: any) {
-        this.error =
-          e?.message ||
-          'Rezepte konnten nicht geladen werden. Bitte versuche es erneut.'
+        this.error = e?.message || 'Rezepte konnten nicht geladen werden.'
         this.recipes = []
       } finally {
         this.loading = false
@@ -61,6 +72,56 @@ export const useRecipesStore = defineStore('recipes', {
 
     async refresh() {
       await this.loadRecipes(this.lastQuery)
+    },
+
+    async loadFavoriteIds() {
+      const auth = useAuthStore()
+      if (!auth.isLoggedIn) {
+        this.favoriteIds = []
+        return
+      }
+
+      this.favLoading = true
+      try {
+        const ids = await fetchMyFavoriteIds()
+        this.favoriteIds = Array.isArray(ids) ? ids.map(Number) : []
+      } catch {
+        this.favoriteIds = []
+      } finally {
+        this.favLoading = false
+      }
+    },
+
+    async toggleFavorite(id: number) {
+      const auth = useAuthStore()
+      const toast = useToastStore()
+
+      if (!auth.isLoggedIn) {
+        toast.info('Bitte zuerst einloggen, um Favoriten zu nutzen.')
+        return
+      }
+
+      const isFav = this.favoriteIds.includes(id)
+      this.favLoading = true
+      try {
+        if (isFav) {
+          await removeFavorite(id)
+          this.favoriteIds = this.favoriteIds.filter((x) => x !== id)
+          toast.info('Aus Favoriten entfernt.')
+        } else {
+          await addFavorite(id)
+          this.favoriteIds = Array.from(new Set([...this.favoriteIds, id]))
+          toast.success('Zu Favoriten hinzugefügt.')
+        }
+      } catch (e: any) {
+        toast.error(e?.message || 'Favorit konnte nicht geändert werden.')
+      } finally {
+        this.favLoading = false
+      }
+    },
+
+    clearFavorites() {
+      this.favoriteIds = []
     },
   },
 })

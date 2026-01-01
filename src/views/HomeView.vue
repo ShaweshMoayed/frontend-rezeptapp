@@ -1,28 +1,31 @@
 <template>
   <section class="hero">
     <div class="hero-card">
-      <h1>
-        Willkommen bei der <span>Rezept App</span>
-      </h1>
+      <h1>Willkommen bei der <span>Rezept App</span></h1>
 
       <p>
-        Dein digitales Kochbuch: Rezepte speichern, Favoriten sammeln,
-        Nährwerte vergleichen und deine Woche mit einem Essensplan organisieren.
+        Dein digitales Kochbuch: Rezepte speichern, Favoriten sammeln, Nährwerte
+        vergleichen und deine Woche mit einem Essensplan organisieren.
       </p>
 
-      <div class="actions">
-        <RouterLink to="/register" class="btn primary">
-          Registrieren
-        </RouterLink>
-        <RouterLink to="/login" class="btn secondary">
-          Einloggen
-        </RouterLink>
+      <!-- ✅ Nur anzeigen, wenn NICHT eingeloggt -->
+      <div v-if="!auth.isLoggedIn" class="actions">
+        <RouterLink to="/register" class="btn primary">Registrieren</RouterLink>
+        <RouterLink to="/login" class="btn secondary">Einloggen</RouterLink>
+      </div>
+
+      <!-- Optional: Wenn eingeloggt, kannst du hier stattdessen was anzeigen -->
+      <div v-else class="logged-hint">
+        <RouterLink to="/rezepte" class="btn primary">Zu den Rezepten</RouterLink>
       </div>
     </div>
   </section>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useAuthStore } from '@/stores/auth.store'
+const auth = useAuthStore()
+</script>
 
 <style scoped>
 .hero {
@@ -59,7 +62,8 @@ p {
   margin-bottom: 32px;
 }
 
-.actions {
+.actions,
+.logged-hint {
   display: flex;
   justify-content: center;
   gap: 16px;
