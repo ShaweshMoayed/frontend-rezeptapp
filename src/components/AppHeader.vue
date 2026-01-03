@@ -11,8 +11,7 @@
         <RouterLink to="/rezepte/neu">Rezept erstellen</RouterLink>
         <RouterLink to="/stats">Statistiken</RouterLink>
         <RouterLink to="/plan">Essensplan</RouterLink>
-
-        <RouterLink v-if="auth.isLoggedIn" to="/favorites">Favoriten</RouterLink>
+        <!-- Favoriten-Link hast du ja schon entfernt/optional – hier nicht mehr drin -->
       </div>
 
       <div class="nav-right">
@@ -31,15 +30,23 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { useToastStore } from '@/stores/toast.store'
+import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const auth = useAuthStore()
+const toast = useToastStore()
+const router = useRouter()
 
 async function onLogout() {
-  await auth.logout()
-  router.push('/') // ✅ Redirect nach Logout
+  try {
+    await auth.logout()
+    toast.info('Erfolgreich ausgeloggt.')
+    // optional: nach Logout wohin?
+    // router.push('/')
+  } catch (e: any) {
+    toast.error(e?.message || 'Logout fehlgeschlagen.')
+  }
 }
 </script>
 

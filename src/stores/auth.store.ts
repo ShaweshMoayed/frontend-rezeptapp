@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import * as authApi from '@/api/auth.api'
 import { useRecipesStore } from '@/stores/recipes.store'
-import { useToastStore } from '@/stores/toast.store'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -23,8 +22,6 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async fetchMe() {
-      const toast = useToastStore()
-
       if (!this.token) {
         this.user = null
         return
@@ -32,10 +29,8 @@ export const useAuthStore = defineStore('auth', {
       try {
         this.user = await authApi.me()
       } catch {
-        // Token ungültig/abgelaufen -> ausloggen
         this.setToken('')
         this.user = null
-        toast.info('Session abgelaufen. Bitte neu einloggen.')
       }
     },
 
@@ -52,32 +47,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // ✅ Auto-Login nach Register
-    async registerAndLogin(username: string, password: string) {
-      const toast = useToastStore()
-      this.loading = true
-      this.error = ''
-      try {
-        await authApi.register({ username, password })
-        const res = await authApi.login({ username, password })
-        this.setToken(res.token)
-        await this.fetchMe()
-
-        // Favoriten nach Login neu laden (Backend = Source of truth)
-        const recipes = useRecipesStore()
-        await recipes.loadFavoriteIds()
-
-        toast.success('Registriert & eingeloggt ✅')
-      } catch (e: any) {
-        this.error = e?.message || 'Registrierung fehlgeschlagen'
-        throw e
-      } finally {
-        this.loading = false
-      }
-    },
-
     async login(username: string, password: string) {
-      const toast = useToastStore()
       this.loading = true
       this.error = ''
       try {
@@ -86,10 +56,9 @@ export const useAuthStore = defineStore('auth', {
 
         await this.fetchMe()
 
+        // ✅ Favoriten nach Login neu vom Backend laden
         const recipes = useRecipesStore()
         await recipes.loadFavoriteIds()
-
-        toast.success('Eingeloggt ✅')
       } catch (e: any) {
         this.error = e?.message || 'Login fehlgeschlagen'
         throw e
@@ -99,22 +68,19 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
-      const toast = useToastStore()
       this.loading = true
       this.error = ''
       try {
-        // Backend invalidiert Token (Favoriten bleiben in DB!)
         if (this.token) await authApi.logout().catch(() => {})
       } finally {
         this.setToken('')
         this.user = null
 
-        // nur lokalen Cache leeren
+        // ✅ Nur lokale Cache-Daten leeren
         const recipes = useRecipesStore()
         recipes.clearFavorites()
 
         this.loading = false
-        toast.info('Ausgeloggt.')
       }
     },
   },

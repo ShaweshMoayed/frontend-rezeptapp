@@ -23,9 +23,8 @@
         {{ store.loading ? 'Lädt…' : 'Laden' }}
       </button>
 
-      <!-- ✅ Nur Favoriten (wenn eingeloggt) -->
+      <!-- ✅ Favoriten-Filter IMMER anzeigen -->
       <button
-        v-if="auth.isLoggedIn"
         class="btn secondary"
         @click="toggleFavoritesOnly"
         :disabled="store.loading || store.favLoading"
@@ -44,12 +43,7 @@
     </div>
 
     <div v-else class="grid">
-      <RecipeCard
-        v-for="r in recipesUi"
-        :key="String(r.id)"
-        :recipe="r"
-        @open="openRecipe"
-      />
+      <RecipeCard v-for="r in recipesUi" :key="String(r.id)" :recipe="r" @open="openRecipe" />
     </div>
 
     <div v-if="!store.loading && recipesUi.length === 0 && !store.error" class="empty">
@@ -66,10 +60,12 @@ import { useRouter } from 'vue-router'
 import RecipeCard from '@/components/RecipeCard.vue'
 import { useRecipesStore } from '@/stores/recipes.store'
 import { useAuthStore } from '@/stores/auth.store'
+import { useToastStore } from '@/stores/toast.store'
 
 const router = useRouter()
 const store = useRecipesStore()
 const auth = useAuthStore()
+const toast = useToastStore()
 
 const search = ref('')
 const category = ref('')
@@ -105,13 +101,18 @@ async function load() {
     category: category.value || '',
   })
 
-  // ✅ wenn Favoriten-Filter aktiv ist -> IDs sicher geladen
   if (favoritesOnly.value && auth.isLoggedIn) {
     await store.loadFavoriteIds()
   }
 }
 
 async function toggleFavoritesOnly() {
+  // ✅ Nicht eingeloggt -> Toast statt alert
+  if (!auth.isLoggedIn) {
+    toast.info('Du musst eingeloggt sein, um Favoriten zu filtern.')
+    return
+  }
+
   favoritesOnly.value = !favoritesOnly.value
   if (favoritesOnly.value) {
     await store.loadFavoriteIds()
@@ -148,7 +149,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page { max-width: 1100px; margin: 0 auto; padding: 28px 18px 40px; }
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+}
 
 .page-head {
   display: flex;
@@ -166,7 +171,10 @@ h1 {
   color: #1f2a24;
 }
 
-.page-head p { margin: 6px 0 0; color: rgba(31, 42, 36, 0.75); }
+.page-head p {
+  margin: 6px 0 0;
+  color: rgba(31, 42, 36, 0.75);
+}
 
 .filters {
   display: grid;
@@ -216,7 +224,10 @@ h1 {
   filter: brightness(1.03);
 }
 
-.btn.secondary { background: rgba(47, 93, 76, 0.10); color: #2f5d4c; }
+.btn.secondary {
+  background: rgba(47, 93, 76, 0.10);
+  color: #2f5d4c;
+}
 
 .alert {
   border: 1px solid rgba(180, 60, 60, 0.25);
@@ -231,13 +242,23 @@ h1 {
   justify-content: space-between;
 }
 
-.link { border: none; background: transparent; color: #2f5d4c; font-weight: 800; cursor: pointer; }
+.link {
+  border: none;
+  background: transparent;
+  color: #2f5d4c;
+  font-weight: 800;
+  cursor: pointer;
+}
 
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
 
 @media (max-width: 980px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .filters { grid-template-columns: 1fr 1fr auto; }
+  .filters { grid-template-columns: 1fr 1fr auto auto; }
 }
 
 @media (max-width: 640px) {
@@ -254,7 +275,11 @@ h1 {
   text-align: center;
 }
 
-.skeleton-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
 
 .skeleton {
   height: 220px;
@@ -265,5 +290,8 @@ h1 {
   animation: shimmer 1.2s ease-in-out infinite;
 }
 
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

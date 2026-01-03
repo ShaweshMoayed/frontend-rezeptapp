@@ -29,9 +29,6 @@
           />
         </label>
 
-        <p v-if="auth.error" class="error">{{ auth.error }}</p>
-        <p v-if="localError" class="error">{{ localError }}</p>
-
         <button class="btn primary" type="submit" :disabled="auth.loading">
           {{ auth.loading ? '…' : 'Registrieren' }}
         </button>
@@ -49,41 +46,42 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { useToastStore } from '@/stores/toast.store'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const toast = useToastStore()
 
 const username = ref('')
 const password = ref('')
 const password2 = ref('')
-const localError = ref('')
 
 async function onRegister() {
-  localError.value = ''
-
   const u = username.value.trim()
   const p = password.value
 
   if (!u) {
-    localError.value = 'Bitte einen Benutzernamen eingeben.'
+    toast.error('Bitte einen Benutzernamen eingeben.')
     return
   }
 
   if (p !== password2.value) {
-    localError.value = 'Passwörter stimmen nicht überein.'
+    toast.error('Passwörter stimmen nicht überein.')
     return
   }
 
-  // ✅ 1) registrieren
-  await auth.register(u, p)
+  try {
+    await auth.register(u, p)
+    await auth.login(u, p)
 
-  // ✅ 2) direkt einloggen (Auto-Login)
-  await auth.login(u, p)
+    toast.success('Registrierung erfolgreich. Du bist jetzt eingeloggt.')
 
-  // ✅ 3) weiterleiten (falls jemand von Guard kam)
-  const redirect = (route.query.redirect as string) || '/rezepte'
-  router.push(redirect)
+    const redirect = (route.query.redirect as string) || '/rezepte'
+    router.push(redirect)
+  } catch (e: any) {
+    toast.error(e?.message || auth.error || 'Registrierung fehlgeschlagen.')
+  }
 }
 </script>
 
@@ -91,12 +89,12 @@ async function onRegister() {
 .hero {
   display: flex;
   justify-content: center;
-  margin-top: 140px; /* ✅ weiter nach unten */
+  margin-top: 140px;
   padding: 0 18px;
 }
 
 .hero-card {
-  background: #f6f2ea; /* ✅ gleiche Farbe wie Home */
+  background: #f6f2ea;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 28px;
   padding: 34px 34px;
@@ -149,11 +147,6 @@ h1 {
 .primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-}
-
-.error {
-  color: rgba(140, 40, 40, 0.95);
-  font-weight: 800;
 }
 
 .hint {
