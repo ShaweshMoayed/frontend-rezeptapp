@@ -129,22 +129,36 @@ import type { Recipe } from '@/types/recipe'
 import { fetchRecipeById, downloadRecipePdf } from '@/api/recipes.api'
 import { useAuthStore } from '@/stores/auth.store'
 import { useRecipesStore } from '@/stores/recipes.store'
+import { useToastStore } from '@/stores/toast.store'
 
-// lokale Bilder
-import spaghettiImg from '@/assets/recipe-fallbacks/spaghetti.png'
-import veggieImg from '@/assets/recipe-fallbacks/veggie-bowl.png'
-import pancakesImg from '@/assets/recipe-fallbacks/pancakes.png'
+// ✅ lokale Bilder (deine neuen PNGs)
+import imgCarbonara from '@/assets/recipe-fallbacks/spaghetti-carbonara.png'
+import imgVeggieBowl from '@/assets/recipe-fallbacks/veggie-bowl.png'
+import imgPancakes from '@/assets/recipe-fallbacks/pancakes-mit-beeren.png'
+
+import imgAglio from '@/assets/recipe-fallbacks/aglio-e-olio.png'
+import imgCurry from '@/assets/recipe-fallbacks/gemuese-curry-mit-reis.png'
+import imgFalafel from '@/assets/recipe-fallbacks/falafel-wrap.png'
+import imgTofu from '@/assets/recipe-fallbacks/tofu-stir-fry.png'
+import imgSushiBowl from '@/assets/recipe-fallbacks/sushi-bowl.png'
+import imgChili from '@/assets/recipe-fallbacks/chili-sin-carne.png'
+import imgGuacamole from '@/assets/recipe-fallbacks/guacamole-mit-nachos.png'
+import imgBurritoBowl from '@/assets/recipe-fallbacks/burrito-bowl.png'
+import imgCaesar from '@/assets/recipe-fallbacks/caesar-salad.png'
+import imgTomatoSoup from '@/assets/recipe-fallbacks/tomatensuppe.png'
+import imgScrambledEggs from '@/assets/recipe-fallbacks/ruehrei-fruehstueck.png'
+import imgBurger from '@/assets/recipe-fallbacks/classic-burger.png'
 
 const route = useRoute()
 const auth = useAuthStore()
 const recipes = useRecipesStore()
+const toast = useToastStore()
 
 const recipe = ref<Recipe | null>(null)
 const loading = ref(false)
 const error = ref('')
 const pdfLoading = ref(false)
 
-// TS-safe Zugriff fürs Template
 const recipeSafe = computed(() => recipe.value)
 
 const recipeId = computed(() => {
@@ -158,23 +172,81 @@ const isFavorite = computed(() => {
   return recipes.isFavorite(id)
 })
 
+function normalize(s: string) {
+  return (s ?? '').trim().toLowerCase()
+}
+
 function categoryLabel(cat: string | null | undefined) {
   const raw = (cat ?? '').trim()
   if (!raw) return ''
-  const c = raw.toLowerCase()
-  const map: Record<string, string> = { pasta: 'Pasta', healthy: 'Gesund', dessert: 'Dessert' }
+  const c = normalize(raw)
+
+  const map: Record<string, string> = {
+    pasta: 'Pasta',
+    healthy: 'Gesund',
+    dessert: 'Dessert',
+
+    italienisch: 'Italienisch',
+    orientalisch: 'Orientalisch',
+    vegan: 'Vegan',
+    asiatisch: 'Asiatisch',
+    mexikanisch: 'Mexikanisch',
+    amerikanisch: 'Amerikanisch',
+    mediterran: 'Mediterran',
+    fruehstueck: 'Frühstück',
+    frühstück: 'Frühstück',
+    suppen: 'Suppen',
+    salat: 'Salat',
+    grill: 'Grill',
+    snack: 'Snack',
+  }
   return map[c] ?? raw
 }
 
-// immer lokale Bilder
-const imageSrc = computed(() => {
-  const t = (recipe.value?.title || '').toLowerCase()
-  const c = (recipe.value?.category || '').toLowerCase().trim()
+function pickLocalImage(): string {
+  const title = normalize(recipe.value?.title ?? '')
+  const cat = normalize(recipe.value?.category ?? '')
 
-  if (t.includes('carbonara') || t.includes('spaghetti') || c === 'pasta') return spaghettiImg
-  if (t.includes('veggie') || t.includes('bowl') || c === 'healthy') return veggieImg
-  if (t.includes('pancake') || t.includes('pancakes') || c === 'dessert') return pancakesImg
-  return veggieImg
+  if (title.includes('carbonara')) return imgCarbonara
+  if (title.includes('veggie') || title.includes('bowl')) return imgVeggieBowl
+  if (title.includes('pancake') || title.includes('beeren')) return imgPancakes
+
+  if (title.includes('aglio') || title.includes('olio')) return imgAglio
+  if (title.includes('curry')) return imgCurry
+  if (title.includes('falafel')) return imgFalafel
+  if (title.includes('tofu') || title.includes('stir')) return imgTofu
+  if (title.includes('sushi')) return imgSushiBowl
+  if (title.includes('chili')) return imgChili
+  if (title.includes('guacamole') || title.includes('nachos')) return imgGuacamole
+  if (title.includes('burrito')) return imgBurritoBowl
+  if (title.includes('caesar')) return imgCaesar
+  if (title.includes('tomat')) return imgTomatoSoup
+  if (title.includes('rührei') || title.includes('ruehrei') || title.includes('frühstück') || title.includes('fruehstueck')) return imgScrambledEggs
+  if (title.includes('burger')) return imgBurger
+
+  // category fallback
+  if (cat === 'italienisch' || cat === 'pasta') return imgAglio
+  if (cat === 'asiatisch') return imgTofu
+  if (cat === 'orientalisch') return imgFalafel
+  if (cat === 'vegan') return imgChili
+  if (cat === 'mexikanisch') return imgBurritoBowl
+  if (cat === 'amerikanisch') return imgBurger
+  if (cat === 'salat') return imgCaesar
+  if (cat === 'suppen') return imgTomatoSoup
+  if (cat === 'frühstück' || cat === 'fruehstueck') return imgScrambledEggs
+  if (cat === 'snack') return imgGuacamole
+
+  return imgVeggieBowl
+}
+
+const imageSrc = computed(() => {
+  // ✅ eigenes Bild hat Vorrang
+  const b64 = recipe.value?.imageBase64?.trim()
+  if (b64) {
+    if (b64.startsWith('data:image/')) return b64
+    return `data:image/jpeg;base64,${b64}`
+  }
+  return pickLocalImage()
 })
 
 const hasNutrition = computed(() => {
@@ -182,9 +254,6 @@ const hasNutrition = computed(() => {
   return !!(n && (n.caloriesKcal != null || n.proteinG != null || n.fatG != null || n.carbsG != null))
 })
 
-/**
- * instructions -> Schritte als Blöcke
- */
 const steps = computed(() => {
   const raw = (recipe.value?.instructions || '').trim()
   if (!raw) return []
@@ -235,7 +304,6 @@ async function load() {
 
     recipe.value = await fetchRecipeById(id)
 
-    // ✅ wenn eingeloggt und Favoriten noch nicht geladen -> nachladen
     if (auth.isLoggedIn && recipes.favoriteIds.length === 0) {
       await recipes.loadFavoriteIds()
     }
@@ -272,7 +340,7 @@ async function downloadPdf() {
     a.remove()
     URL.revokeObjectURL(url)
   } catch (e: any) {
-    alert(e?.message || 'PDF konnte nicht geladen werden.')
+    toast.error(e?.message || 'PDF konnte nicht geladen werden.')
   } finally {
     pdfLoading.value = false
   }
@@ -282,11 +350,20 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* (Style ist 1:1 dein bestehender – unverändert) */
 .page { max-width: 1100px; margin: 0 auto; padding: 26px 18px 46px; color: #1f2a24; }
 
 .hero { position: relative; border-radius: 22px; overflow: hidden; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.10); background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(40, 40, 40, 0.08); }
-.hero-img { width: 100%; height: 260px; object-fit: cover; display: block; }
+
+/* ✅ ZOOM-FIX: weniger reingezoomt */
+.hero-img {
+  width: 100%;
+  height: 260px;
+  object-fit: contain;        /* <- wichtig */
+  object-position: center;
+  display: block;
+  background: rgba(255,255,255,0.40); /* Ränder sehen clean aus */
+}
+
 .hero-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); padding: 16px 18px 14px; }
 .hero-top { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
 

@@ -41,10 +41,23 @@ import type { Recipe } from '@/types/recipe'
 import { useAuthStore } from '@/stores/auth.store'
 import { useRecipesStore } from '@/stores/recipes.store'
 
-// ✅ lokale Bilder
-import fallbackSpaghetti from '@/assets/recipe-fallbacks/spaghetti.png'
-import fallbackVeggie from '@/assets/recipe-fallbacks/veggie-bowl.png'
-import fallbackPancakes from '@/assets/recipe-fallbacks/pancakes.png'
+// ✅ lokale Bilder (deine neuen PNGs)
+import imgCarbonara from '@/assets/recipe-fallbacks/spaghetti-carbonara.png'
+import imgVeggieBowl from '@/assets/recipe-fallbacks/veggie-bowl.png'
+import imgPancakes from '@/assets/recipe-fallbacks/pancakes-mit-beeren.png'
+
+import imgAglio from '@/assets/recipe-fallbacks/aglio-e-olio.png'
+import imgCurry from '@/assets/recipe-fallbacks/gemuese-curry-mit-reis.png'
+import imgFalafel from '@/assets/recipe-fallbacks/falafel-wrap.png'
+import imgTofu from '@/assets/recipe-fallbacks/tofu-stir-fry.png'
+import imgSushiBowl from '@/assets/recipe-fallbacks/sushi-bowl.png'
+import imgChili from '@/assets/recipe-fallbacks/chili-sin-carne.png'
+import imgGuacamole from '@/assets/recipe-fallbacks/guacamole-mit-nachos.png'
+import imgBurritoBowl from '@/assets/recipe-fallbacks/burrito-bowl.png'
+import imgCaesar from '@/assets/recipe-fallbacks/caesar-salad.png'
+import imgTomatoSoup from '@/assets/recipe-fallbacks/tomatensuppe.png'
+import imgScrambledEggs from '@/assets/recipe-fallbacks/ruehrei-fruehstueck.png'
+import imgBurger from '@/assets/recipe-fallbacks/classic-burger.png'
 
 const props = defineProps<{ recipe: Recipe }>()
 
@@ -56,23 +69,55 @@ const auth = useAuthStore()
 const recipes = useRecipesStore()
 
 onMounted(async () => {
-  // ✅ einmal Favoriten laden (wenn eingeloggt und noch nicht geladen)
   if (auth.isLoggedIn && recipes.favoriteIds.length === 0) {
     await recipes.loadFavoriteIds()
   }
 })
 
-function pickLocalImage(): string {
-  const title = (props.recipe.title ?? '').toLowerCase()
-  const cat = (props.recipe.category ?? '').toLowerCase().trim()
+function normalize(s: string) {
+  return (s ?? '').trim().toLowerCase()
+}
 
-  if (title.includes('carbonara') || title.includes('spaghetti') || cat === 'pasta') return fallbackSpaghetti
-  if (title.includes('veggie') || title.includes('bowl') || cat === 'healthy') return fallbackVeggie
-  if (title.includes('pancake') || cat === 'dessert') return fallbackPancakes
-  return fallbackVeggie
+function pickLocalImage(): string {
+  const title = normalize(props.recipe.title ?? '')
+  const cat = normalize(props.recipe.category ?? '')
+
+  // Title-based matching (sehr robust, unabhängig von Category)
+  if (title.includes('carbonara')) return imgCarbonara
+  if (title.includes('veggie') || title.includes('bowl')) return imgVeggieBowl
+  if (title.includes('pancake') || title.includes('beeren')) return imgPancakes
+
+  if (title.includes('aglio') || title.includes('olio')) return imgAglio
+  if (title.includes('curry')) return imgCurry
+  if (title.includes('falafel')) return imgFalafel
+  if (title.includes('tofu') || title.includes('stir')) return imgTofu
+  if (title.includes('sushi')) return imgSushiBowl
+  if (title.includes('chili')) return imgChili
+  if (title.includes('guacamole') || title.includes('nachos')) return imgGuacamole
+  if (title.includes('burrito')) return imgBurritoBowl
+  if (title.includes('caesar')) return imgCaesar
+  if (title.includes('tomat')) return imgTomatoSoup
+  if (title.includes('rührei') || title.includes('ruehrei') || title.includes('frühstück') || title.includes('fruehstueck')) return imgScrambledEggs
+  if (title.includes('burger')) return imgBurger
+
+  // Category fallback (falls Titel mal anders ist)
+  if (cat === 'pasta' || cat === 'italienisch') return imgAglio
+  if (cat === 'asiatisch') return imgTofu
+  if (cat === 'orientalisch') return imgFalafel
+  if (cat === 'vegan') return imgChili
+  if (cat === 'mexikanisch') return imgBurritoBowl
+  if (cat === 'amerikanisch') return imgBurger
+  if (cat === 'salat') return imgCaesar
+  if (cat === 'suppen') return imgTomatoSoup
+  if (cat === 'frühstück' || cat === 'fruehstueck') return imgScrambledEggs
+  if (cat === 'snack') return imgGuacamole
+
+  // Default
+  return imgVeggieBowl
 }
 
 const imageSrc = computed(() => {
+  // ✅ wenn User ein eigenes Bild hochlädt, hat das Vorrang
   const b64 = props.recipe.imageBase64?.trim()
   if (b64) {
     if (b64.startsWith('data:image/')) return b64
@@ -82,9 +127,27 @@ const imageSrc = computed(() => {
 })
 
 function categoryLabel(cat: string) {
-  const c = cat.trim().toLowerCase()
-  const map: Record<string, string> = { pasta: 'Pasta', healthy: 'Gesund', dessert: 'Dessert' }
-  return map[c] ?? cat
+  const c = normalize(cat)
+  const map: Record<string, string> = {
+    pasta: 'Pasta',
+    healthy: 'Gesund',
+    dessert: 'Dessert',
+
+    italienisch: 'Italienisch',
+    orientalisch: 'Orientalisch',
+    vegan: 'Vegan',
+    asiatisch: 'Asiatisch',
+    mexikanisch: 'Mexikanisch',
+    amerikanisch: 'Amerikanisch',
+    mediterran: 'Mediterran',
+    fruehstueck: 'Frühstück',
+    frühstück: 'Frühstück',
+    suppen: 'Suppen',
+    salat: 'Salat',
+    grill: 'Grill',
+    snack: 'Snack',
+  }
+  return map[c] ?? (cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1))
 }
 
 const prepMinutes = computed(() => props.recipe.prepMinutes ?? null)
@@ -127,7 +190,7 @@ async function toggleFav() {
 }
 
 .media { position: relative; height: 132px; background: rgba(47, 93, 76, 0.06); }
-.media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media img { width: 100%; height: 100%; object-fit: cover; display: block; } /* Cards: cover ist ok */
 
 .badge {
   position: absolute;

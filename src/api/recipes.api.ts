@@ -25,9 +25,15 @@ export async function fetchRecipeById(id: number): Promise<Recipe> {
   return http<Recipe>(`/rezeptapp/${id}`)
 }
 
-// ---------- Favoriten ----------
-// http.ts sendet Authorization automatisch, wenn auth_token vorhanden ist.
+// ✅ Create
+export async function createRecipe(payload: Recipe): Promise<Recipe> {
+  return http<Recipe>(`/rezeptapp`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
 
+// ---------- Favoriten ----------
 export async function fetchMyFavorites(): Promise<Recipe[]> {
   return http<Recipe[]>(`/rezeptapp/favorites`)
 }
@@ -45,7 +51,6 @@ export async function removeFavorite(recipeId: number): Promise<void> {
 }
 
 // ---------- PDF ----------
-
 function getToken(): string {
   return localStorage.getItem('auth_token') || ''
 }

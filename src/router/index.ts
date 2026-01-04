@@ -1,11 +1,20 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { useToastStore } from '@/stores/toast.store'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
 
   { path: '/rezepte', name: 'recipes', component: () => import('@/views/RecipesView.vue') },
-  { path: '/rezepte/neu', name: 'create-recipe', component: () => import('@/views/CreateRecipeView.vue') },
+
+  // ✅ Rezept erstellen nur für eingeloggte User
+  {
+    path: '/rezepte/neu',
+    name: 'create-recipe',
+    component: () => import('@/views/CreateRecipeView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   {
     path: '/rezepte/:id',
     name: 'recipe-detail',
@@ -16,7 +25,6 @@ const routes: RouteRecordRaw[] = [
   { path: '/stats', name: 'stats', component: () => import('@/views/StatsView.vue') },
   { path: '/plan', name: 'meal-plan', component: () => import('@/views/MealPlanView.vue') },
 
-  // ✅ Favoriten nur für eingeloggte User
   {
     path: '/favorites',
     name: 'favorites',
@@ -38,17 +46,19 @@ const router = createRouter({
   },
 })
 
-// ✅ Guard: Favorites nur wenn eingeloggt
+// ✅ Guard: requiresAuth -> Toast + Redirect
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
-
-  if (to.meta.requiresAuth && !auth.isLoggedIn) {
-    return { name: 'login', query: { redirect: to.fullPath } }
-  }
+  const toast = useToastStore()
 
   // optional: wenn Token vorhanden aber user noch nicht geladen -> nachladen
   if (auth.token && !auth.user) {
     await auth.fetchMe()
+  }
+
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    toast.info('Bitte einloggen, um diese Funktion zu nutzen.')
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   return true

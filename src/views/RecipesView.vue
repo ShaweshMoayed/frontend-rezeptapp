@@ -14,6 +14,10 @@
 
       <select v-model="category" class="select">
         <option value="">Alle Kategorien</option>
+
+        <!-- ✅ Eigene Rezepte -->
+        <option :value="MINE_VALUE">Eigene Rezepte</option>
+
         <option v-for="c in categoriesUi" :key="c" :value="c">
           {{ categoryLabel(c) }}
         </option>
@@ -23,7 +27,6 @@
         {{ store.loading ? 'Lädt…' : 'Laden' }}
       </button>
 
-      <!-- ✅ Favoriten-Filter IMMER anzeigen -->
       <button
         class="btn secondary"
         @click="toggleFavoritesOnly"
@@ -71,10 +74,40 @@ const search = ref('')
 const category = ref('')
 const favoritesOnly = ref(false)
 
+const MINE_VALUE = '__mine__'
+
+function normalize(s: string) {
+  return (s ?? '').trim().toLowerCase()
+}
+
 function categoryLabel(raw: string) {
-  const key = raw.trim().toLowerCase()
-  const map: Record<string, string> = { healthy: 'Gesund', dessert: 'Dessert', pasta: 'Pasta' }
-  return map[key] ?? (raw.charAt(0).toUpperCase() + raw.slice(1))
+  const trimmed = (raw ?? '').trim()
+  if (!trimmed) return ''
+
+  if (trimmed === MINE_VALUE) return 'Eigene Rezepte'
+
+  const key = normalize(trimmed)
+  const map: Record<string, string> = {
+    pasta: 'Pasta',
+    healthy: 'Gesund',
+    dessert: 'Dessert',
+
+    italienisch: 'Italienisch',
+    orientalisch: 'Orientalisch',
+    vegan: 'Vegan',
+    asiatisch: 'Asiatisch',
+    mexikanisch: 'Mexikanisch',
+    amerikanisch: 'Amerikanisch',
+    mediterran: 'Mediterran',
+    fruehstueck: 'Frühstück',
+    frühstück: 'Frühstück',
+    suppen: 'Suppen',
+    salat: 'Salat',
+    grill: 'Grill',
+    snack: 'Snack',
+  }
+
+  return map[key] ?? (trimmed.charAt(0).toUpperCase() + trimmed.slice(1))
 }
 
 const categoriesUi = computed(() => {
@@ -96,6 +129,11 @@ const recipesUi = computed(() => {
 })
 
 async function load() {
+  if (category.value === MINE_VALUE && !auth.isLoggedIn) {
+    toast.info('Bitte einloggen, um deine eigenen Rezepte zu sehen.')
+    category.value = ''
+  }
+
   await store.loadRecipes({
     search: search.value?.trim() || '',
     category: category.value || '',
@@ -107,7 +145,6 @@ async function load() {
 }
 
 async function toggleFavoritesOnly() {
-  // ✅ Nicht eingeloggt -> Toast statt alert
   if (!auth.isLoggedIn) {
     toast.info('Du musst eingeloggt sein, um Favoriten zu filtern.')
     return
@@ -140,6 +177,31 @@ const autoLoad = debounce(() => load(), 350)
 
 watch(search, () => autoLoad())
 watch(category, () => load())
+
+watch(
+  () => auth.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn) return
+
+    let changed = false
+
+    if (category.value === MINE_VALUE) {
+      category.value = ''
+      changed = true
+    }
+
+    if (favoritesOnly.value) {
+      favoritesOnly.value = false
+      changed = true
+    }
+
+    if (changed) {
+      if (category.value !== MINE_VALUE) {
+        load()
+      }
+    }
+  }
+)
 
 onMounted(async () => {
   await store.loadCategories()
