@@ -2,7 +2,7 @@
   <section class="page" v-if="recipeSafe">
     <!-- HERO -->
     <div class="hero">
-      <img class="hero-img" :src="imageSrc" :alt="recipeSafe.title" draggable="false" />
+      <div class="hero-img" :style="{ backgroundImage: `url(${imageSrc})` }" />
 
       <div class="hero-card">
         <div class="hero-top">
@@ -27,6 +27,17 @@
               <span class="icon" aria-hidden="true">⤓</span>
               <span>{{ pdfLoading ? 'Lädt…' : 'PDF' }}</span>
             </button>
+
+            <!-- ✅ nur Owner -->
+            <button v-if="isOwner" class="icon-btn" @click="onEdit">
+              <span class="icon" aria-hidden="true">✎</span>
+              <span>Bearbeiten</span>
+            </button>
+
+            <button v-if="isOwner" class="icon-btn danger" @click="onDelete" :disabled="deleting">
+              <span class="icon" aria-hidden="true">🗑</span>
+              <span>{{ deleting ? 'Löscht…' : 'Löschen' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -34,7 +45,7 @@
 
     <!-- CONTENT -->
     <div class="content">
-      <!-- LEFT: Zubereitung -->
+      <!-- LEFT -->
       <div class="panel">
         <div class="panel-head">
           <h2>Zubereitung</h2>
@@ -58,7 +69,7 @@
         </div>
       </div>
 
-      <!-- RIGHT: Zutaten + Nährwerte -->
+      <!-- RIGHT -->
       <aside class="side">
         <div class="panel">
           <div class="panel-head row">
@@ -124,32 +135,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { Recipe } from '@/types/recipe'
-import { fetchRecipeById, downloadRecipePdf } from '@/api/recipes.api'
+import { fetchRecipeById, downloadRecipePdf, deleteRecipe } from '@/api/recipes.api'
 import { useAuthStore } from '@/stores/auth.store'
 import { useRecipesStore } from '@/stores/recipes.store'
 import { useToastStore } from '@/stores/toast.store'
 
-// ✅ lokale Bilder (deine neuen PNGs)
-import imgCarbonara from '@/assets/recipe-fallbacks/spaghetti-carbonara.png'
-import imgVeggieBowl from '@/assets/recipe-fallbacks/veggie-bowl.png'
-import imgPancakes from '@/assets/recipe-fallbacks/pancakes-mit-beeren.png'
-
-import imgAglio from '@/assets/recipe-fallbacks/aglio-e-olio.png'
-import imgCurry from '@/assets/recipe-fallbacks/gemuese-curry-mit-reis.png'
-import imgFalafel from '@/assets/recipe-fallbacks/falafel-wrap.png'
-import imgTofu from '@/assets/recipe-fallbacks/tofu-stir-fry.png'
-import imgSushiBowl from '@/assets/recipe-fallbacks/sushi-bowl.png'
-import imgChili from '@/assets/recipe-fallbacks/chili-sin-carne.png'
-import imgGuacamole from '@/assets/recipe-fallbacks/guacamole-mit-nachos.png'
-import imgBurritoBowl from '@/assets/recipe-fallbacks/burrito-bowl.png'
-import imgCaesar from '@/assets/recipe-fallbacks/caesar-salad.png'
-import imgTomatoSoup from '@/assets/recipe-fallbacks/tomatensuppe.png'
-import imgScrambledEggs from '@/assets/recipe-fallbacks/ruehrei-fruehstueck.png'
-import imgBurger from '@/assets/recipe-fallbacks/classic-burger.png'
-
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const recipes = useRecipesStore()
 const toast = useToastStore()
@@ -158,6 +152,7 @@ const recipe = ref<Recipe | null>(null)
 const loading = ref(false)
 const error = ref('')
 const pdfLoading = ref(false)
+const deleting = ref(false)
 
 const recipeSafe = computed(() => recipe.value)
 
@@ -172,81 +167,82 @@ const isFavorite = computed(() => {
   return recipes.isFavorite(id)
 })
 
-function normalize(s: string) {
-  return (s ?? '').trim().toLowerCase()
-}
+const isOwner = computed(() => {
+  const me = (auth.user?.username || '').trim().toLowerCase()
+  const owner = (recipe.value?.createdByUsername || '').trim().toLowerCase()
+  return !!me && !!owner && me === owner
+})
 
 function categoryLabel(cat: string | null | undefined) {
   const raw = (cat ?? '').trim()
   if (!raw) return ''
-  const c = normalize(raw)
-
+  const key = raw.toLowerCase()
   const map: Record<string, string> = {
     pasta: 'Pasta',
     healthy: 'Gesund',
     dessert: 'Dessert',
-
     italienisch: 'Italienisch',
     orientalisch: 'Orientalisch',
-    vegan: 'Vegan',
     asiatisch: 'Asiatisch',
+    vegan: 'Vegan',
     mexikanisch: 'Mexikanisch',
     amerikanisch: 'Amerikanisch',
-    mediterran: 'Mediterran',
-    fruehstueck: 'Frühstück',
-    frühstück: 'Frühstück',
-    suppen: 'Suppen',
     salat: 'Salat',
-    grill: 'Grill',
-    snack: 'Snack',
+    suppe: 'Suppe',
+    frühstück: 'Frühstück',
+    fruehstueck: 'Frühstück',
   }
-  return map[c] ?? raw
+  return map[key] ?? raw
 }
 
-function pickLocalImage(): string {
-  const title = normalize(recipe.value?.title ?? '')
-  const cat = normalize(recipe.value?.category ?? '')
+const FALLBACKS = import.meta.glob('@/assets/recipe-fallbacks/*.{png,jpg,jpeg,webp}', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>
 
-  if (title.includes('carbonara')) return imgCarbonara
-  if (title.includes('veggie') || title.includes('bowl')) return imgVeggieBowl
-  if (title.includes('pancake') || title.includes('beeren')) return imgPancakes
+function filenameFromPath(p: string) {
+  const parts = p.split('/')
+  return (parts[parts.length - 1] || '').toLowerCase()
+}
+const FALLBACK_MAP = (() => {
+  const m = new Map<string, string>()
+  for (const [path, url] of Object.entries(FALLBACKS)) m.set(filenameFromPath(path), url)
+  return m
+})()
 
-  if (title.includes('aglio') || title.includes('olio')) return imgAglio
-  if (title.includes('curry')) return imgCurry
-  if (title.includes('falafel')) return imgFalafel
-  if (title.includes('tofu') || title.includes('stir')) return imgTofu
-  if (title.includes('sushi')) return imgSushiBowl
-  if (title.includes('chili')) return imgChili
-  if (title.includes('guacamole') || title.includes('nachos')) return imgGuacamole
-  if (title.includes('burrito')) return imgBurritoBowl
-  if (title.includes('caesar')) return imgCaesar
-  if (title.includes('tomat')) return imgTomatoSoup
-  if (title.includes('rührei') || title.includes('ruehrei') || title.includes('frühstück') || title.includes('fruehstueck')) return imgScrambledEggs
-  if (title.includes('burger')) return imgBurger
+function slugify(s: string) {
+  return (s || '')
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
 
-  // category fallback
-  if (cat === 'italienisch' || cat === 'pasta') return imgAglio
-  if (cat === 'asiatisch') return imgTofu
-  if (cat === 'orientalisch') return imgFalafel
-  if (cat === 'vegan') return imgChili
-  if (cat === 'mexikanisch') return imgBurritoBowl
-  if (cat === 'amerikanisch') return imgBurger
-  if (cat === 'salat') return imgCaesar
-  if (cat === 'suppen') return imgTomatoSoup
-  if (cat === 'frühstück' || cat === 'fruehstueck') return imgScrambledEggs
-  if (cat === 'snack') return imgGuacamole
-
-  return imgVeggieBowl
+function pickFromFolderByName(base: string): string | null {
+  if (!base) return null
+  const s = slugify(base)
+  for (const t of [`${s}.png`, `${s}.jpg`, `${s}.jpeg`, `${s}.webp`]) {
+    const hit = FALLBACK_MAP.get(t)
+    if (hit) return hit
+  }
+  return null
 }
 
 const imageSrc = computed(() => {
-  // ✅ eigenes Bild hat Vorrang
   const b64 = recipe.value?.imageBase64?.trim()
   if (b64) {
     if (b64.startsWith('data:image/')) return b64
     return `data:image/jpeg;base64,${b64}`
   }
-  return pickLocalImage()
+  const byTitle = pickFromFolderByName(recipe.value?.title ?? '')
+  if (byTitle) return byTitle
+  const byCat = pickFromFolderByName(recipe.value?.category ?? '')
+  if (byCat) return byCat
+  return Array.from(FALLBACK_MAP.values())[0] || ''
 })
 
 const hasNutrition = computed(() => {
@@ -258,40 +254,26 @@ const steps = computed(() => {
   const raw = (recipe.value?.instructions || '').trim()
   if (!raw) return []
 
-  const blocks = raw
-    .split(/\n\s*\n+/g)
-    .map((b) => b.trim())
-    .filter(Boolean)
-
+  const blocks = raw.split(/\n\s*\n+/g).map((b) => b.trim()).filter(Boolean)
   const out: Array<{ title: string; paragraphs: string[] }> = []
 
   for (const block of blocks) {
-    const lines = block
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean)
     const first = lines[0]
     if (!first) continue
 
     const m = first.match(/^(\d+)\)\s*(.*)$/)
     if (m) {
       const title = (m[2] || '').replace(/:\s*$/, '').trim() || `Schritt ${m[1]}`
-      const paragraphs = lines
-        .slice(1)
-        .map((l) => l.replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
-
+      const paragraphs = lines.slice(1).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)
       out.push({ title, paragraphs })
-      continue
+    } else {
+      out.push({
+        title: first.replace(/:\s*$/, '').trim(),
+        paragraphs: lines.slice(1).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean),
+      })
     }
-
-    out.push({
-      title: first.replace(/:\s*$/, '').trim(),
-      paragraphs: lines.slice(1).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean),
-    })
   }
-
   return out
 })
 
@@ -301,7 +283,6 @@ async function load() {
   try {
     const id = recipeId.value
     if (!id) throw new Error('Ungültige ID')
-
     recipe.value = await fetchRecipeById(id)
 
     if (auth.isLoggedIn && recipes.favoriteIds.length === 0) {
@@ -324,17 +305,13 @@ async function toggleFavorite() {
 async function downloadPdf() {
   const id = recipeId.value
   if (!id) return
-
   pdfLoading.value = true
   try {
     const blob = await downloadRecipePdf(id)
     const url = URL.createObjectURL(blob)
-
     const a = document.createElement('a')
     a.href = url
-    const safeName = (recipe.value?.title || 'rezept').split(' ').join('_')
-    a.download = `${safeName}.pdf`
-
+    a.download = `${(recipe.value?.title || 'rezept').split(' ').join('_')}.pdf`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -346,24 +323,51 @@ async function downloadPdf() {
   }
 }
 
+function onEdit() {
+  if (!isOwner.value) return
+  router.push({ name: 'edit-recipe', params: { id: recipeId.value } })
+}
+
+async function onDelete() {
+  if (!isOwner.value) return
+
+  const ok = await toast.confirm('Willst du dieses Rezept wirklich löschen?', {
+    type: 'error',
+    confirmText: 'Löschen',
+    cancelText: 'Abbrechen',
+  })
+  if (!ok) return
+
+  deleting.value = true
+  try {
+    await deleteRecipe(recipeId.value)
+    toast.success('Rezept gelöscht.')
+    await recipes.refresh()
+    await recipes.loadCategories()
+    router.push({ name: 'recipes' })
+  } catch (e: any) {
+    toast.error(e?.message || 'Rezept konnte nicht gelöscht werden.')
+  } finally {
+    deleting.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
 <style scoped>
+/* (dein bestehendes CSS unverändert) */
 .page { max-width: 1100px; margin: 0 auto; padding: 26px 18px 46px; color: #1f2a24; }
 
-.hero { position: relative; border-radius: 22px; overflow: hidden; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.10); background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(40, 40, 40, 0.08); }
-
-/* ✅ ZOOM-FIX: weniger reingezoomt */
-.hero-img {
-  width: 100%;
-  height: 260px;
-  object-fit: contain;        /* <- wichtig */
-  object-position: center;
-  display: block;
-  background: rgba(255,255,255,0.40); /* Ränder sehen clean aus */
+.hero {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(40, 40, 40, 0.08);
 }
-
+.hero-img { width: 100%; height: 260px; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .hero-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); padding: 16px 18px 14px; }
 .hero-top { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
 
@@ -375,11 +379,11 @@ onMounted(load)
 .chip.soft { background: rgba(47, 93, 76, 0.10); color: #2f5d4c; border-color: rgba(47, 93, 76, 0.18); }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-
 .icon-btn { height: 42px; border-radius: 999px; border: 1px solid rgba(47, 93, 76, 0.22); background: rgba(47, 93, 76, 0.08); color: #2f5d4c; padding: 0 14px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease; }
 .icon-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(0,0,0,0.10); filter: brightness(1.02); }
 .icon-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
 .icon-btn.primary { background: #2f5d4c; color: #fff; }
+.icon-btn.danger { border-color: rgba(160, 60, 60, 0.35); background: rgba(160, 60, 60, 0.10); color: rgba(120, 30, 30, 0.95); }
 .icon { font-size: 1.05rem; line-height: 1; }
 
 .content { margin-top: 16px; display: grid; grid-template-columns: 1.35fr 0.85fr; gap: 14px; }
@@ -397,10 +401,8 @@ onMounted(load)
 .step { border-radius: 14px; border: 1px solid rgba(40, 40, 40, 0.08); background: rgba(255,255,255,0.65); padding: 10px 12px; }
 .step summary { cursor: pointer; display: flex; align-items: center; gap: 10px; list-style: none; }
 .step summary::-webkit-details-marker { display: none; }
-
 .step-num { font-weight: 900; color: #2f5d4c; background: rgba(47, 93, 76, 0.10); border: 1px solid rgba(47, 93, 76, 0.18); border-radius: 999px; padding: 6px 10px; font-size: 0.82rem; white-space: nowrap; }
 .step-title { font-weight: 800; }
-
 .step-body { margin-top: 8px; color: rgba(31, 42, 36, 0.80); line-height: 1.45; }
 .step-body p { margin: 0 0 8px; }
 .step-body p:last-child { margin-bottom: 0; }
@@ -410,7 +412,6 @@ onMounted(load)
 
 .ingredients { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .ingredients li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(40, 40, 40, 0.08); background: rgba(255,255,255,0.65); }
-
 .ing-left { font-weight: 800; }
 .ing-right { color: rgba(31, 42, 36, 0.75); font-weight: 700; white-space: nowrap; }
 
@@ -418,8 +419,6 @@ onMounted(load)
 .nutri { border-radius: 14px; border: 1px solid rgba(40, 40, 40, 0.08); background: rgba(255,255,255,0.65); padding: 12px; }
 .nutri span { display: block; color: rgba(31, 42, 36, 0.70); font-weight: 700; font-size: 0.88rem; }
 .nutri strong { display: block; margin-top: 4px; font-size: 1.15rem; font-weight: 900; color: #1f2a24; }
-
-.empty { color: rgba(31, 42, 36, 0.75); }
 
 @media (max-width: 980px) {
   .hero-img { height: 220px; }

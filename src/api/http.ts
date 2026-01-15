@@ -72,14 +72,14 @@ export async function http<T>(path: string, options: RequestInit = {}): Promise<
 
   if (res.status === 204) return undefined as T
 
-  // ✅ Erfolgs-Response: kann JSON oder Text sein (z.B. "registered")
+  // Erfolgs-Response: kann JSON oder Text sein (z.B. "registered")
   try {
     if (isJsonResponse(res)) {
       return (await res.json()) as T
     }
     return (await res.text()) as unknown as T
   } catch {
-    // falls wirklich nix lesbar ist
+    // falls wirklich nichts lesbar ist
     return undefined as T
   }
 }

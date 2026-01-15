@@ -6,8 +6,6 @@ export type RecipeQuery = {
   category?: string
 }
 
-// ---------- Rezepte ----------
-
 export async function fetchRecipes(params?: RecipeQuery): Promise<Recipe[]> {
   const q = new URLSearchParams()
   if (params?.search) q.set('search', params.search)
@@ -25,12 +23,24 @@ export async function fetchRecipeById(id: number): Promise<Recipe> {
   return http<Recipe>(`/rezeptapp/${id}`)
 }
 
-// ✅ Create
 export async function createRecipe(payload: Recipe): Promise<Recipe> {
   return http<Recipe>(`/rezeptapp`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+// ✅ NEU
+export async function updateRecipe(id: number, payload: Partial<Recipe>): Promise<Recipe> {
+  return http<Recipe>(`/rezeptapp/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+// ✅ NEU
+export async function deleteRecipe(id: number): Promise<void> {
+  await http<void>(`/rezeptapp/${id}`, { method: 'DELETE' })
 }
 
 // ---------- Favoriten ----------
@@ -64,11 +74,9 @@ export async function downloadRecipePdf(recipeId: number): Promise<Blob> {
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(url, { method: 'GET', headers })
-
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `PDF Download fehlgeschlagen (${res.status})`)
   }
-
   return await res.blob()
 }

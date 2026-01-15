@@ -14,7 +14,7 @@ async function bootstrap() {
   app.use(pinia)
   app.use(router)
 
-  // ✅ Persistenter Login: beim Start user + favoriten laden
+  // Persistenter Login: beim Start user + favoriten laden
   const auth = useAuthStore(pinia)
   const recipes = useRecipesStore(pinia)
 

@@ -46,7 +46,8 @@
     </div>
 
     <div v-else class="grid">
-      <RecipeCard v-for="r in recipesUi" :key="String(r.id)" :recipe="r" @open="openRecipe" />
+      <!-- ✅ KEIN @open mehr – RecipeCard navigiert selbst -->
+      <RecipeCard v-for="r in recipesUi" :key="String(r.id)" :recipe="r" />
     </div>
 
     <div v-if="!store.loading && recipesUi.length === 0 && !store.error" class="empty">
@@ -83,7 +84,6 @@ function normalize(s: string) {
 function categoryLabel(raw: string) {
   const trimmed = (raw ?? '').trim()
   if (!trimmed) return ''
-
   if (trimmed === MINE_VALUE) return 'Eigene Rezepte'
 
   const key = normalize(trimmed)
@@ -91,7 +91,6 @@ function categoryLabel(raw: string) {
     pasta: 'Pasta',
     healthy: 'Gesund',
     dessert: 'Dessert',
-
     italienisch: 'Italienisch',
     orientalisch: 'Orientalisch',
     vegan: 'Vegan',
@@ -101,7 +100,8 @@ function categoryLabel(raw: string) {
     mediterran: 'Mediterran',
     fruehstueck: 'Frühstück',
     frühstück: 'Frühstück',
-    suppen: 'Suppen',
+    suppe: 'Suppe',
+    suppen: 'Suppe',
     salat: 'Salat',
     grill: 'Grill',
     snack: 'Snack',
@@ -151,18 +151,11 @@ async function toggleFavoritesOnly() {
   }
 
   favoritesOnly.value = !favoritesOnly.value
-  if (favoritesOnly.value) {
-    await store.loadFavoriteIds()
-  }
-}
-
-function openRecipe(id: number | string | undefined) {
-  if (id == null) return
-  router.push(`/rezepte/${id}`)
+  if (favoritesOnly.value) await store.loadFavoriteIds()
 }
 
 function goCreate() {
-  router.push('/rezepte/neu')
+  router.push({ name: 'create-recipe' })
 }
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms = 350) {
@@ -182,24 +175,18 @@ watch(
   () => auth.isLoggedIn,
   (loggedIn) => {
     if (loggedIn) return
-
     let changed = false
 
     if (category.value === MINE_VALUE) {
       category.value = ''
       changed = true
     }
-
     if (favoritesOnly.value) {
       favoritesOnly.value = false
       changed = true
     }
 
-    if (changed) {
-      if (category.value !== MINE_VALUE) {
-        load()
-      }
-    }
+    if (changed) load()
   }
 )
 
@@ -211,11 +198,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 28px 18px 40px;
-}
+.page { max-width: 1100px; margin: 0 auto; padding: 28px 18px 40px; }
 
 .page-head {
   display: flex;
@@ -225,18 +208,8 @@ onMounted(async () => {
   margin-bottom: 14px;
 }
 
-h1 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  color: #1f2a24;
-}
-
-.page-head p {
-  margin: 6px 0 0;
-  color: rgba(31, 42, 36, 0.75);
-}
+h1 { margin: 0; font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; color: #1f2a24; }
+.page-head p { margin: 6px 0 0; color: rgba(31, 42, 36, 0.75); }
 
 .filters {
   display: grid;
@@ -251,8 +224,7 @@ h1 {
   margin-bottom: 16px;
 }
 
-.input,
-.select {
+.input, .select {
   height: 44px;
   border-radius: 14px;
   border: 1px solid rgba(40, 40, 40, 0.12);
@@ -262,8 +234,7 @@ h1 {
   transition: box-shadow 160ms ease, border-color 160ms ease;
 }
 
-.input:focus,
-.select:focus {
+.input:focus, .select:focus {
   border-color: rgba(47, 93, 76, 0.35);
   box-shadow: 0 0 0 4px rgba(47, 93, 76, 0.14);
 }
@@ -280,16 +251,8 @@ h1 {
   transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
 }
 
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.10);
-  filter: brightness(1.03);
-}
-
-.btn.secondary {
-  background: rgba(47, 93, 76, 0.10);
-  color: #2f5d4c;
-}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.10); filter: brightness(1.03); }
+.btn.secondary { background: rgba(47, 93, 76, 0.10); color: #2f5d4c; }
 
 .alert {
   border: 1px solid rgba(180, 60, 60, 0.25);
@@ -304,25 +267,14 @@ h1 {
   justify-content: space-between;
 }
 
-.link {
-  border: none;
-  background: transparent;
-  color: #2f5d4c;
-  font-weight: 800;
-  cursor: pointer;
-}
+.link { border: none; background: transparent; color: #2f5d4c; font-weight: 800; cursor: pointer; }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 
 @media (max-width: 980px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters { grid-template-columns: 1fr 1fr auto auto; }
 }
-
 @media (max-width: 640px) {
   .grid { grid-template-columns: 1fr; }
   .filters { grid-template-columns: 1fr; }
@@ -337,12 +289,7 @@ h1 {
   text-align: center;
 }
 
-.skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
+.skeleton-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .skeleton {
   height: 220px;
   border-radius: 18px;
@@ -351,9 +298,5 @@ h1 {
   background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
 }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 </style>

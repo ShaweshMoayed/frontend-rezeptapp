@@ -1,15 +1,28 @@
-<!-- src/views/CreateRecipeView.vue -->
+<!-- src/views/EditRecipeView.vue -->
 <template>
   <section class="page">
-    <div class="hero">
+    <div v-if="loading" class="panel"><p>Lädt…</p></div>
+
+    <div v-else-if="error" class="panel error">
+      <p>{{ error }}</p>
+    </div>
+
+    <div v-else class="hero">
       <div class="hero-card">
         <div class="head">
           <div>
-            <h1 class="title">Rezept erstellen</h1>
-            <p class="sub">Fülle die Felder aus und speichere unten rechts.</p>
+            <h1 class="title">Rezept bearbeiten</h1>
+            <p class="sub">Ändere die Felder und speichere unten rechts.</p>
+          </div>
+
+          <div class="head-actions">
+            <button class="btn danger" type="button" @click="onDelete" :disabled="deleting">
+              {{ deleting ? 'Löscht…' : 'Löschen' }}
+            </button>
           </div>
         </div>
 
+        <!-- ✅ Alles untereinander / volle Breite -->
         <div class="stack">
           <!-- BASIS -->
           <div class="panel">
@@ -66,6 +79,7 @@
               </label>
             </div>
 
+            <!-- ✅ Custom-Kategorie -->
             <div v-if="categorySelect === OTHER_VALUE" class="other-box">
               <label class="label">
                 Eigene Kategorie *
@@ -80,7 +94,7 @@
 
             <div class="panel-head" style="margin-top: 14px">
               <h2>Bild</h2>
-              <p class="muted">Optional. Ohne Bild wird automatisch ein Standardbild erzeugt.</p>
+              <p class="muted">Upload (wird als Base64 gespeichert)</p>
             </div>
 
             <div class="upload">
@@ -92,7 +106,9 @@
                 @change="onFile"
               />
 
-              <button class="btn secondary" type="button" @click="pickFile">Datei auswählen</button>
+              <button class="btn secondary" type="button" @click="pickFile">
+                Datei auswählen
+              </button>
 
               <div class="file-pill" v-if="fileName">
                 <span class="file-name" :title="fileName">{{ fileName }}</span>
@@ -123,7 +139,9 @@
                 <button class="icon danger" type="button" @click="removeIngredient(idx)" title="Entfernen">✕</button>
               </div>
 
-              <button class="btn secondary full" type="button" @click="addIngredient">+ Zutat hinzufügen</button>
+              <button class="btn secondary full" type="button" @click="addIngredient">
+                + Zutat hinzufügen
+              </button>
             </div>
           </div>
 
@@ -170,19 +188,30 @@
                 </summary>
 
                 <div class="step-body">
-                  <textarea class="textarea full" v-model="s.text" rows="4" placeholder="Beschreibe den Schritt…"></textarea>
+                  <textarea
+                    class="textarea full"
+                    v-model="s.text"
+                    rows="4"
+                    placeholder="Beschreibe den Schritt…"
+                  ></textarea>
                 </div>
               </details>
 
-              <button class="btn secondary full" type="button" @click="addStep">+ Schritt hinzufügen</button>
+              <button class="btn secondary full" type="button" @click="addStep">
+                + Schritt hinzufügen
+              </button>
             </div>
           </div>
         </div>
 
+        <!-- ✅ unten rechts -->
         <div class="footer">
-          <button class="btn secondary" type="button" @click="goBack" :disabled="saving">Abbrechen</button>
-          <button class="btn primary" type="button" @click="submit" :disabled="saving">
-            {{ saving ? 'Speichert…' : 'Rezept erstellen' }}
+          <button class="btn secondary" type="button" @click="goBack" :disabled="saving || deleting">
+            Abbrechen
+          </button>
+
+          <button class="btn primary" type="button" @click="submit" :disabled="saving || deleting">
+            {{ saving ? 'Speichert…' : 'Änderungen speichern' }}
           </button>
         </div>
       </div>
@@ -191,46 +220,59 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useToastStore } from '@/stores/toast.store'
-import { useRecipesStore } from '@/stores/recipes.store'
-import { createRecipe } from '@/api/recipes.api'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { Recipe } from '@/types/recipe'
+import { fetchRecipeById, updateRecipe, deleteRecipe } from '@/api/recipes.api'
+import { useAuthStore } from '@/stores/auth.store'
+import { useRecipesStore } from '@/stores/recipes.store'
+import { useToastStore } from '@/stores/toast.store'
 
-const router = useRouter()
+type Step = { title: string; text: string }
+
 const route = useRoute()
-const toast = useToastStore()
+const router = useRouter()
+const auth = useAuthStore()
 const recipesStore = useRecipesStore()
+const toast = useToastStore()
 
+const loading = ref(false)
 const saving = ref(false)
+const deleting = ref(false)
+const error = ref('')
+
+const fileEl = ref<HTMLInputElement | null>(null)
 const preview = ref<string>('')
 const fileName = ref<string>('')
 
-const fileEl = ref<HTMLInputElement | null>(null)
+const OTHER_VALUE = '__other__'
+const categorySelect = ref<string>('')
+const customCategory = ref<string>('')
 
-type Step = { title: string; text: string }
+const recipeId = computed(() => {
+  const id = Number(route.params.id)
+  return Number.isFinite(id) ? id : 0
+})
 
 const form = ref({
   title: '',
   description: '',
-  category: '',
   prepMinutes: null as number | null,
   servings: 2 as number,
+
   imageBase64: '' as string,
+
   ingredients: [{ name: '', amount: '', unit: '' }],
+
   nutrition: {
     caloriesKcal: null as number | null,
     proteinG: null as number | null,
     fatG: null as number | null,
     carbsG: null as number | null,
   },
+
   steps: [{ title: '', text: '' }] as Step[],
 })
-
-const OTHER_VALUE = '__other__'
-const categorySelect = ref<string>('')
-const customCategory = ref<string>('')
 
 watch(categorySelect, (val) => {
   if (val !== OTHER_VALUE) customCategory.value = ''
@@ -240,22 +282,6 @@ const finalCategory = computed(() => {
   if (categorySelect.value === OTHER_VALUE) return customCategory.value.trim()
   return (categorySelect.value || '').trim()
 })
-
-function addIngredient() {
-  form.value.ingredients.push({ name: '', amount: '', unit: '' })
-}
-function removeIngredient(i: number) {
-  form.value.ingredients.splice(i, 1)
-  if (form.value.ingredients.length === 0) addIngredient()
-}
-
-function addStep() {
-  form.value.steps.push({ title: '', text: '' })
-}
-function removeStep(i: number) {
-  form.value.steps.splice(i, 1)
-  if (form.value.steps.length === 0) addStep()
-}
 
 function pickFile() {
   fileEl.value?.click()
@@ -283,10 +309,26 @@ async function onFile(e: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     const result = String(reader.result || '')
-    form.value.imageBase64 = result
+    form.value.imageBase64 = result // data:image/...;base64,...
     preview.value = result
   }
   reader.readAsDataURL(file)
+}
+
+function addIngredient() {
+  form.value.ingredients.push({ name: '', amount: '', unit: '' })
+}
+function removeIngredient(i: number) {
+  form.value.ingredients.splice(i, 1)
+  if (form.value.ingredients.length === 0) addIngredient()
+}
+
+function addStep() {
+  form.value.steps.push({ title: '', text: '' })
+}
+function removeStep(i: number) {
+  form.value.steps.splice(i, 1)
+  if (form.value.steps.length === 0) addStep()
 }
 
 function buildInstructions(steps: Step[]) {
@@ -298,7 +340,38 @@ function buildInstructions(steps: Step[]) {
       return `${n}) ${title}:\n${body}`.trim()
     })
     .filter(Boolean)
+
   return blocks.join('\n\n')
+}
+
+function parseInstructionsToSteps(instructions: string | null | undefined): Step[] {
+  const raw = (instructions || '').trim()
+  if (!raw) return [{ title: '', text: '' }]
+
+  const blocks = raw
+    .split(/\n\s*\n+/g)
+    .map((b) => b.trim())
+    .filter(Boolean)
+
+  const out: Step[] = []
+
+  for (const block of blocks) {
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean)
+    const head = lines[0] ?? ''
+    const m = head.match(/^(\d+)\)\s*(.*)$/)
+
+    if (m) {
+      const title = (m[2] || '').replace(/:\s*$/, '').trim()
+      const body = lines.slice(1).join('\n').trim()
+      out.push({ title, text: body })
+    } else {
+      const title = head.replace(/:\s*$/, '').trim()
+      const body = lines.slice(1).join('\n').trim()
+      out.push({ title, text: body })
+    }
+  }
+
+  return out.length ? out : [{ title: '', text: '' }]
 }
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
@@ -307,8 +380,9 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   let line = ''
   for (const w of words) {
     const test = line ? `${line} ${w}` : w
-    if (ctx.measureText(test).width <= maxWidth) line = test
-    else {
+    if (ctx.measureText(test).width <= maxWidth) {
+      line = test
+    } else {
       if (line) lines.push(line)
       line = w
     }
@@ -366,6 +440,7 @@ function generateTitleImageDataUrl(title: string): string {
 function validate(): string | null {
   const t = form.value.title.trim()
   const d = form.value.description.trim()
+
   if (!t) return 'Bitte einen Namen eingeben.'
   if (!d) return 'Bitte eine Beschreibung eingeben.'
 
@@ -378,18 +453,104 @@ function validate(): string | null {
   const cleanIngredients = form.value.ingredients
     .map((i) => ({ ...i, name: (i.name || '').trim() }))
     .filter((i) => i.name.length > 0)
+
   if (cleanIngredients.length < 1) return 'Bitte mindestens 1 Zutat eintragen.'
 
   const steps = form.value.steps
     .map((s) => ({ ...s, text: (s.text || '').trim() }))
     .filter((s) => s.text.length > 0)
+
   if (steps.length < 1) return 'Bitte mindestens 1 Schritt ausfüllen.'
 
   const n = form.value.nutrition
   if (n.caloriesKcal == null || n.proteinG == null || n.fatG == null || n.carbsG == null) {
     return 'Bitte alle Nährwerte ausfüllen.'
   }
+
   return null
+}
+
+function ensureOwnerOrThrow(r: Recipe) {
+  const me = (auth.user?.username || '').trim().toLowerCase()
+  const owner = (r.createdByUsername || '').trim().toLowerCase()
+  if (!me || !owner || me !== owner) {
+    throw new Error('forbidden')
+  }
+}
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    const id = recipeId.value
+    if (!id) throw new Error('Ungültige ID')
+
+    if (auth.token && !auth.user) {
+      await auth.fetchMe()
+    }
+
+    const r = await fetchRecipeById(id)
+    ensureOwnerOrThrow(r)
+
+    form.value.title = r.title || ''
+    form.value.description = r.description || ''
+    form.value.prepMinutes = r.prepMinutes ?? null
+    form.value.servings = r.servings ?? 2
+
+    const b64 = (r.imageBase64 || '').trim()
+    form.value.imageBase64 = b64
+    preview.value = b64 ? b64 : ''
+    fileName.value = b64 ? 'Vorhandenes Bild' : ''
+
+    const ings = (r.ingredients || []).map((i) => ({
+      name: (i.name || '').trim(),
+      amount: i.amount ?? '',
+      unit: i.unit ?? '',
+    }))
+    form.value.ingredients = ings.length ? ings : [{ name: '', amount: '', unit: '' }]
+
+    form.value.nutrition.caloriesKcal = r.nutrition?.caloriesKcal ?? null
+    form.value.nutrition.proteinG = r.nutrition?.proteinG ?? null
+    form.value.nutrition.fatG = r.nutrition?.fatG ?? null
+    form.value.nutrition.carbsG = r.nutrition?.carbsG ?? null
+
+    form.value.steps = parseInstructionsToSteps(r.instructions)
+
+    const cat = (r.category || '').trim()
+    const presets = new Set([
+      '',
+      'Italienisch',
+      'Orientalisch',
+      'Asiatisch',
+      'Vegan',
+      'Mexikanisch',
+      'Salat',
+      'Suppe',
+      'Frühstück',
+      'Amerikanisch',
+      'Dessert',
+      'Healthy',
+    ])
+    if (presets.has(cat)) {
+      categorySelect.value = cat
+      customCategory.value = ''
+    } else if (cat) {
+      categorySelect.value = OTHER_VALUE
+      customCategory.value = cat
+    } else {
+      categorySelect.value = ''
+      customCategory.value = ''
+    }
+  } catch (e: any) {
+    const msg = String(e?.message || '').toLowerCase()
+    if (msg.includes('forbidden')) {
+      error.value = 'Du darfst dieses Rezept nicht bearbeiten.'
+    } else {
+      error.value = e?.message || 'Fehler beim Laden'
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
 async function submit() {
@@ -415,7 +576,7 @@ async function submit() {
 
     const cat = finalCategory.value
 
-    let imageBase64 = form.value.imageBase64?.trim() || ''
+    let imageBase64 = (form.value.imageBase64 || '').trim()
     if (!imageBase64) {
       imageBase64 = generateTitleImageDataUrl(form.value.title.trim())
       form.value.imageBase64 = imageBase64
@@ -423,13 +584,16 @@ async function submit() {
       fileName.value = 'Standardbild (automatisch)'
     }
 
-    const payload: Recipe = {
+    const payload: Partial<Recipe> = {
       title: form.value.title.trim(),
       description: form.value.description.trim(),
       category: cat ? cat : null,
+
       prepMinutes: form.value.prepMinutes ?? null,
       servings: form.value.servings ?? null,
+
       imageBase64: imageBase64 || null,
+
       ingredients: cleanIngredients,
       nutrition: {
         caloriesKcal: form.value.nutrition.caloriesKcal!,
@@ -437,32 +601,67 @@ async function submit() {
         fatG: form.value.nutrition.fatG!,
         carbsG: form.value.nutrition.carbsG!,
       },
+
       instructions: buildInstructions(cleanSteps),
     }
 
-    const created = await createRecipe(payload)
-    toast.success('Rezept erstellt.')
+    await updateRecipe(recipeId.value, payload)
+
+    toast.success('Änderungen gespeichert.')
 
     await recipesStore.refresh()
     await recipesStore.loadCategories()
 
-    const redirect = (route.query.redirect as string) || `/rezepte/${created.id}`
-    router.push(redirect)
+    router.push({ name: 'recipe-detail', params: { id: recipeId.value } })
   } catch (e: any) {
-    toast.error(e?.message || 'Rezept konnte nicht erstellt werden.')
+    toast.error(e?.message || 'Änderungen konnten nicht gespeichert werden.')
   } finally {
     saving.value = false
   }
 }
 
-function goBack() {
-  router.push({ name: 'recipes' })
+async function onDelete() {
+  const ok = await toast.confirm('Willst du dieses Rezept wirklich löschen?', {
+    type: 'error',
+    confirmText: 'Löschen',
+    cancelText: 'Abbrechen',
+  })
+  if (!ok) return
+
+  deleting.value = true
+  try {
+    await deleteRecipe(recipeId.value)
+    toast.success('Rezept gelöscht.')
+
+    await recipesStore.refresh()
+    await recipesStore.loadCategories()
+
+    router.push({ name: 'recipes' })
+  } catch (e: any) {
+    toast.error(e?.message || 'Rezept konnte nicht gelöscht werden.')
+  } finally {
+    deleting.value = false
+  }
 }
+
+function goBack() {
+  router.push({ name: 'recipe-detail', params: { id: recipeId.value } })
+}
+
+onMounted(load)
 </script>
 
 <style scoped>
-.page { max-width: 1100px; margin: 0 auto; padding: 26px 18px 46px; color: #1f2a24; }
+/* (dein bestehendes CSS unverändert) */
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 26px 18px 46px;
+  color: #1f2a24;
+}
+
 .hero { display: flex; justify-content: center; margin-top: 10px; }
+
 .hero-card {
   width: 100%;
   border-radius: 22px;
@@ -471,9 +670,18 @@ function goBack() {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.06);
   padding: 16px;
 }
-.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .title { margin: 0; font-size: 1.8rem; font-weight: 900; }
 .sub { margin: 6px 0 0; color: rgba(31, 42, 36, 0.75); }
+
 .stack { display: grid; gap: 14px; }
 
 .panel {
@@ -483,11 +691,27 @@ function goBack() {
   box-shadow: 0 18px 40px rgba(0,0,0,0.06);
   padding: 16px;
 }
-.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.panel.error { border-color: rgba(180, 60, 60, 0.25); background: rgba(180, 60, 60, 0.08); }
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .panel h2 { margin: 0; font-size: 1.15rem; font-weight: 900; }
 .muted { margin: 0; color: rgba(31, 42, 36, 0.70); }
 
-.label { display: grid; gap: 6px; font-weight: 800; color: rgba(31, 42, 36, 0.9); margin-bottom: 10px; }
+.label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+  color: rgba(31, 42, 36, 0.9);
+  margin-bottom: 10px;
+}
+
 .input, .select, .textarea, .step-title {
   border-radius: 14px;
   border: 1px solid rgba(40, 40, 40, 0.12);
@@ -495,11 +719,17 @@ function goBack() {
   outline: none;
   width: 100%;
 }
+
 .input, .select { height: 44px; padding: 0 14px; }
 .textarea { padding: 10px 14px; resize: vertical; }
 .textarea.full { width: 100%; }
 
-.row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
 .other-box {
   margin-top: 10px;
   border-radius: 16px;
@@ -511,8 +741,14 @@ function goBack() {
 .hint.small { font-size: 0.9rem; }
 
 /* Upload */
-.upload { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+.upload {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
 .file-hidden { display: none; }
+
 .file-pill {
   display: inline-flex;
   align-items: center;
@@ -524,21 +760,53 @@ function goBack() {
   padding: 8px 10px 8px 12px;
   min-height: 44px;
 }
-.file-name { font-weight: 800; color: rgba(31, 42, 36, 0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.file-name {
+  font-weight: 800;
+  color: rgba(31, 42, 36, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .preview { margin-top: 10px; display: grid; gap: 10px; }
-.preview img { width: 100%; max-height: 260px; object-fit: cover; border-radius: 18px; border: 1px solid rgba(40, 40, 40, 0.10); }
+.preview img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid rgba(40, 40, 40, 0.10);
+}
 
 /* Zutaten */
 .ingredients { display: grid; gap: 10px; }
-.ing-row { display: grid; grid-template-columns: 1.4fr 0.7fr 0.7fr auto; gap: 8px; align-items: center; }
+.ing-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr auto;
+  gap: 8px;
+  align-items: center;
+}
 
 /* Nährwerte */
 .nutri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* Steps */
 .steps { display: grid; gap: 10px; }
-.step { border-radius: 14px; border: 1px solid rgba(40, 40, 40, 0.08); background: rgba(255,255,255,0.65); padding: 10px 12px; }
-.step summary { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; cursor: pointer; list-style: none; }
+.step {
+  border-radius: 14px;
+  border: 1px solid rgba(40, 40, 40, 0.08);
+  background: rgba(255,255,255,0.65);
+  padding: 10px 12px;
+}
+.step summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
 .step summary::-webkit-details-marker { display: none; }
 .step-num {
   font-weight: 900;
@@ -569,6 +837,7 @@ function goBack() {
 .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn.secondary { background: rgba(47, 93, 76, 0.10); color: #2f5d4c; }
 .btn.primary { background: #2f5d4c; color: #fff; }
+.btn.danger { border-color: rgba(160, 60, 60, 0.35); background: rgba(160, 60, 60, 0.10); color: rgba(120, 30, 30, 0.95); }
 .btn.full { width: 100%; justify-content: center; }
 
 .icon {

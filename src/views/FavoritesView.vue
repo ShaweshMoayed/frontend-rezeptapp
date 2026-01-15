@@ -6,7 +6,7 @@
         <p>Alle Rezepte, die du favorisiert hast.</p>
       </div>
 
-      <button class="btn secondary" @click="load" :disabled="loading || recipesStore.favLoading">
+      <button class="btn secondary" @click="load" :disabled="loading">
         {{ loading ? 'Lädt…' : 'Aktualisieren' }}
       </button>
     </header>
@@ -18,12 +18,7 @@
     </div>
 
     <div v-else class="grid">
-      <RecipeCard
-        v-for="r in favorites"
-        :key="String(r.id)"
-        :recipe="r"
-        @open="openRecipe"
-      />
+      <RecipeCard v-for="r in favorites" :key="String(r.id)" :recipe="r" @open="openRecipe" />
     </div>
 
     <div v-if="!loading && favorites.length === 0 && !error" class="empty">
@@ -34,40 +29,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import RecipeCard from '@/components/RecipeCard.vue'
+import type { Recipe } from '@/types/recipe'
+import { fetchMyFavorites } from '@/api/recipes.api'
 import { useRecipesStore } from '@/stores/recipes.store'
-import { useAuthStore } from '@/stores/auth.store'
 
 const router = useRouter()
 const recipesStore = useRecipesStore()
-const auth = useAuthStore()
 
+const favorites = ref<Recipe[]>([])
 const loading = ref(false)
 const error = ref('')
-
-const favorites = computed(() => recipesStore.favoriteRecipes)
 
 async function load() {
   loading.value = true
   error.value = ''
-
   try {
-    // Guard ist zwar im Router, aber sicher ist sicher:
-    if (!auth.isLoggedIn) {
-      router.push({ name: 'login', query: { redirect: '/favorites' } })
-      return
-    }
-
-    // ✅ hier passiert alles über Store (kein fetchMyFavorites)
-    await recipesStore.ensureFavoritesReady()
-
-    // optional: wenn du wirklich "frisch" willst, statt Cache:
-    // await recipesStore.loadFavoriteIds()
-    // await recipesStore.loadRecipes({ search: '', category: '' })
+    favorites.value = await fetchMyFavorites()
+    // ✅ IDs syncen (damit Herzen überall stimmen)
+    await recipesStore.loadFavoriteIds()
   } catch (e: any) {
     error.value = e?.message || 'Favoriten konnten nicht geladen werden.'
+    favorites.value = []
   } finally {
     loading.value = false
   }

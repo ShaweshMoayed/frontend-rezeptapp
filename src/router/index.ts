@@ -1,13 +1,12 @@
+// src/router/index.ts (UPDATED)
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToastStore } from '@/stores/toast.store'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
-
   { path: '/rezepte', name: 'recipes', component: () => import('@/views/RecipesView.vue') },
 
-  // ✅ Rezept erstellen nur für eingeloggte User
   {
     path: '/rezepte/neu',
     name: 'create-recipe',
@@ -22,6 +21,15 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
 
+  // ✅ NEU: Bearbeiten
+  {
+    path: '/rezepte/:id/bearbeiten',
+    name: 'edit-recipe',
+    component: () => import('@/views/EditRecipeView.vue'),
+    props: true,
+    meta: { requiresAuth: true },
+  },
+
   { path: '/stats', name: 'stats', component: () => import('@/views/StatsView.vue') },
   { path: '/plan', name: 'meal-plan', component: () => import('@/views/MealPlanView.vue') },
 
@@ -34,7 +42,6 @@ const routes: RouteRecordRaw[] = [
 
   { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue') },
   { path: '/register', name: 'register', component: () => import('@/views/RegisterView.vue') },
-
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
@@ -46,12 +53,10 @@ const router = createRouter({
   },
 })
 
-// ✅ Guard: requiresAuth -> Toast + Redirect
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const toast = useToastStore()
 
-  // optional: wenn Token vorhanden aber user noch nicht geladen -> nachladen
   if (auth.token && !auth.user) {
     await auth.fetchMe()
   }
