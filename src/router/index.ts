@@ -21,7 +21,6 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
 
-  // ✅ NEU: Bearbeiten
   {
     path: '/rezepte/:id/bearbeiten',
     name: 'edit-recipe',
@@ -30,7 +29,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
-  { path: '/stats', name: 'stats', component: () => import('@/views/StatsView.vue') },
+  // ✅ Stats jetzt auch Login-pflichtig
+  {
+    path: '/stats',
+    name: 'stats',
+    component: () => import('@/views/StatsView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   { path: '/plan', name: 'meal-plan', component: () => import('@/views/MealPlanView.vue') },
 
   {
