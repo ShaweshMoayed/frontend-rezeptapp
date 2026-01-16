@@ -79,7 +79,7 @@
               </label>
             </div>
 
-            <!-- ✅ Custom-Kategorie -->
+            <!-- Custom-Kategorie -->
             <div v-if="categorySelect === OTHER_VALUE" class="other-box">
               <label class="label">
                 Eigene Kategorie *
@@ -204,7 +204,7 @@
           </div>
         </div>
 
-        <!-- ✅ unten rechts -->
+        <!-- unten rechts -->
         <div class="footer">
           <button class="btn secondary" type="button" @click="goBack" :disabled="saving || deleting">
             Abbrechen

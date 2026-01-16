@@ -28,7 +28,7 @@
               <span>{{ pdfLoading ? 'Lädt…' : 'PDF' }}</span>
             </button>
 
-            <!-- ✅ nur Owner -->
+            <!-- nur Owner -->
             <button v-if="isOwner" class="icon-btn" @click="onEdit">
               <span class="icon" aria-hidden="true">✎</span>
               <span>Bearbeiten</span>

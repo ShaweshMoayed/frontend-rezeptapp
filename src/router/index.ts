@@ -1,4 +1,3 @@
-// src/router/index.ts (UPDATED)
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToastStore } from '@/stores/toast.store'
@@ -29,7 +28,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
-  // ✅ Stats jetzt auch Login-pflichtig
   {
     path: '/stats',
     name: 'stats',
@@ -37,7 +35,13 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
-  { path: '/plan', name: 'meal-plan', component: () => import('@/views/MealPlanView.vue') },
+  // Wochenplan: nur eingeloggt
+  {
+    path: '/plan',
+    name: 'meal-plan',
+    component: () => import('@/views/MealPlanView.vue'),
+    meta: { requiresAuth: true },
+  },
 
   {
     path: '/favorites',

@@ -48,7 +48,7 @@ async function load() {
   error.value = ''
   try {
     favorites.value = await fetchMyFavorites()
-    // ✅ IDs syncen (damit Herzen überall stimmen)
+    // IDs syncen (damit Herzen überall stimmen)
     await recipesStore.loadFavoriteIds()
   } catch (e: any) {
     error.value = e?.message || 'Favoriten konnten nicht geladen werden.'

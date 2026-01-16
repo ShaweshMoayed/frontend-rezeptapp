@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', {
 
         await this.fetchMe()
 
-        // ✅ Favoriten nach Login neu vom Backend laden
+        // Favoriten nach Login neu vom Backend laden
         const recipes = useRecipesStore()
         await recipes.loadFavoriteIds()
       } catch (e: any) {
@@ -76,7 +76,7 @@ export const useAuthStore = defineStore('auth', {
         this.setToken('')
         this.user = null
 
-        // ✅ Nur lokale Cache-Daten leeren
+        // Nur lokale Cache-Daten leeren
         const recipes = useRecipesStore()
         recipes.clearFavorites()
 

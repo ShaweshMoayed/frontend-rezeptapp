@@ -11,7 +11,7 @@
         <RouterLink to="/rezepte/neu">Rezept erstellen</RouterLink>
         <RouterLink to="/stats">Statistiken</RouterLink>
         <RouterLink to="/plan">Essensplan</RouterLink>
-        <!-- Favoriten-Link hast du ja schon entfernt/optional – hier nicht mehr drin -->
+
       </div>
 
       <div class="nav-right">

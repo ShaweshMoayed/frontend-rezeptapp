@@ -26,18 +26,24 @@ const legend = computed(() => props.showLegend ?? true)
 
 // App-Style Farben (Grün + warme Neutrals)
 const PALETTE = [
-  'rgba(47, 93, 76, 0.85)',   // brand green
-  'rgba(63, 109, 87, 0.85)',  // accent green
-  'rgba(31, 42, 36, 0.75)',   // dark
-  'rgba(217, 210, 199, 0.95)',// nav beige
-  'rgba(239, 231, 218, 0.95)',// hero beige
+  'rgba(47, 93, 76, 0.85)', // brand green
+  'rgba(63, 109, 87, 0.85)', // accent green
+  'rgba(31, 42, 36, 0.75)', // dark
+  'rgba(217, 210, 199, 0.95)', // nav beige
+  'rgba(239, 231, 218, 0.95)', // hero beige
   'rgba(58, 110, 165, 0.75)', // blue-ish (sparingly)
-  'rgba(163, 58, 58, 0.70)',  // red-ish (sparingly)
-]
+  'rgba(163, 58, 58, 0.70)', // red-ish (sparingly)
+] as const
 
-function buildColors(count: number) {
-  const out: string[] = []
-  for (let i = 0; i < count; i++) out.push(PALETTE[i % PALETTE.length])
+type PaletteColor = (typeof PALETTE)[number]
+
+function paletteAt(i: number): PaletteColor {
+  return PALETTE[i % PALETTE.length]!
+}
+
+function buildColors(count: number): PaletteColor[] {
+  const out: PaletteColor[] = []
+  for (let i = 0; i < count; i++) out.push(paletteAt(i))
   return out
 }
 
@@ -56,7 +62,7 @@ function render() {
   if (!ctx) return
 
   const datasets = props.datasets.map((ds, idx) => {
-    const base = PALETTE[idx % PALETTE.length]
+    const base = paletteAt(idx)
     const border = base.replace(/0\.85|0\.95|0\.75|0\.70/g, '1.0')
 
     // doughnut braucht pro slice colors

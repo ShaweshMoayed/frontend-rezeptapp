@@ -69,7 +69,7 @@ export const useToastStore = defineStore('toast', {
     },
 
     /**
-     * ✅ Toast-basierte Bestätigung (statt window.confirm)
+     * Toast-basierte Bestätigung (statt window.confirm)
      * Usage:
      *   const ok = await toast.confirm("Wirklich löschen?", { type: 'error' })
      */

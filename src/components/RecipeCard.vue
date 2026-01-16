@@ -15,7 +15,7 @@
           {{ categoryLabel(recipe.category) }}
         </span>
 
-        <!-- ✅ Fav Button bleibt klickbar ohne Navigation -->
+        <!-- Fav Button bleibt klickbar ohne Navigation -->
         <button
           class="fav"
           type="button"

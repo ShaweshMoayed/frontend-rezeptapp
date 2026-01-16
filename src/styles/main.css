@@ -10,7 +10,7 @@
   --accent: #3f6d57;
 
   /* Navigation */
-  --nav-bg: #d9d2c7;       /* dunkler als vorher */
+  --nav-bg: #d9d2c7;
   --nav-border: #c7bfb2;
 
   --chip: rgba(255, 255, 255, 0.45);
@@ -20,7 +20,7 @@
   --cta-border: rgba(0, 0, 0, 0.14);
 
   /* Hero */
-  --hero-bg: #efe7da;      /* beige, aber mit Kontrast */
+  --hero-bg: #efe7da;
   --hero-border: rgba(0, 0, 0, 0.14);
 
   /* Buttons */

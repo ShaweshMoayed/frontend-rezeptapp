@@ -25,7 +25,7 @@ export type Recipe = {
   nutrition?: Nutrition | null
   ingredients?: Ingredient[]
 
-  // ✅ Variante A: Besitzerinfo als String
+  // Variante A: Besitzerinfo als String
   createdByUsername?: string | null
 
   createdAt?: string

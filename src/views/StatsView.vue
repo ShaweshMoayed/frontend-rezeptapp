@@ -117,7 +117,7 @@ async function loadAllForStats() {
   try {
     const visible = await fetchRecipes({ search: '', category: '' })
 
-    // eigene Rezepte extra laden (damit Kategorie-Statistik sicher deine enthält)
+    // eigene Rezepte extra laden (damit Kategorie-Statistik sicher)
     let mine: Recipe[] = []
     try {
       mine = await fetchRecipes({ search: '', category: '__mine__' })
@@ -130,7 +130,7 @@ async function loadAllForStats() {
     // Favoriten für Donut
     await store.loadFavoriteIds()
 
-    // ✅ hier: sauber A/B initialisieren (ohne [0]/[1])
+    // hier: sauber A/B initialisieren (ohne [0]/[1])
     ensureDefaultCompareSelection()
   } catch (e: any) {
     toast.error(e?.message || 'Statistiken konnten nicht geladen werden.')
