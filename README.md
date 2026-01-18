@@ -259,7 +259,8 @@ Bei jedem Push/PR werden automatisch ausgeführt:
 
 ---
 
-## 📝 Hinweis (Bewertungskriterien)
+## 📝 Hinweis 
 
 Dieses Projekt wurde im Rahmen des Moduls **Webtechnologien** an der **HTW Berlin** umgesetzt.
+
 ---
